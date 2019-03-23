@@ -1,3 +1,8 @@
+%{
+#include "yyfunc.h"
+#include <stdio.h>
+%}
+
 %token t_and "and"
 %token t_array "array"
 %token t_begin "begin"
@@ -41,7 +46,7 @@
 %token t_assign ":="
 
 
-%nonassoc "<=" ">=" '<' '>' '=' "<>"
+%left "<=" ">=" '<' '>' '=' "<>"
 %left '+' '-' "or"
 %left '*' '/' "div" "mod" "and"
 %nonassoc '@' '^'
@@ -51,7 +56,7 @@
 %%
 
 program:
-  "program" t_id ";" body "."
+  "program" t_id ';' body '.'
 ;
 
 
@@ -63,41 +68,41 @@ body:
 
 moreid:
   t_id
-| t_id "," moreid
+| t_id ',' moreid
 ;
 
 
 localvar:
-  moreid ":" type ";"
-| moreid ":" type ";" localvar
+  moreid ':' type ';'
+| moreid ':' type ';' localvar
 ;
 
   
 local: 
   "var" localvar
-| "label" moreid ";"
-| header ";" body ";"
-| "forward" header ";"
+| "label" moreid ';'
+| header ';' body ';'
+| "forward" header ';'
 ;
 
 
 header:
-  "procedure" t_id "(" ")"
-| "procedure" t_id "(" moreformal ")"
-| "function" t_id "(" ")" ":" type
-| "function" t_id "(" moreformal ")" ":" type
+  "procedure" t_id '(' ')'
+| "procedure" t_id '(' moreformal ')'
+| "function" t_id '(' ')' ':' type
+| "function" t_id '(' moreformal ')' ':' type
 ;
 
 
 moreformal:
   formal
-| formal ";" moreformal
+| formal ';' moreformal
 ;
 
 
 formal:
-  "var" moreid ":" type
-| moreid ":" type
+  "var" moreid ':' type
+| moreid ':' type
 ;
 
 
@@ -107,7 +112,7 @@ type:
 | "boolean"
 | "char"
 | "array" "of" type
-| "array" "[" t_int_const "]" "of" type
+| "array" '[' t_int_const ']' "of" type
 | '^' type
 ;
 
@@ -119,7 +124,7 @@ block:
 
 morestmt:
   stmt
-| stmt ";" morestmt
+| stmt ';' morestmt
 ;
 
 
@@ -130,19 +135,19 @@ stmt:
 | "if" expr "then" stmt
 | "if" expr "then" stmt "else" stmt
 | "while" expr "do" stmt
-| t_id ":" stmt
+| t_id ':' stmt
 | "goto" t_id
 | "return"
 | "new" lvalue
-| "new" "[" expr "]" lvalue
+| "new" '[' expr ']' lvalue
 | "dispose" lvalue
-| "dispose" "[" "]" lvalue
+| "dispose" '[' ']' lvalue
 ;
 
 
 moreexpr:
   expr
-| expr "," moreexpr
+| expr ',' moreexpr
 ;
 
 
@@ -153,10 +158,10 @@ expr:
 
 
 lvalue:
-  lvalue "[" expr "]"
+  lvalue '[' expr ']'
 | lvalue '^' 
 |  t_string_const
-| "(" lvalue ")"
+| '(' lvalue ')'
 | t_id
 | "result"
 ;
@@ -168,18 +173,31 @@ rvalue:
 | "false"
 | t_real_const
 | t_char_const
-| "(" rvalue ")"
+| '(' rvalue ')'
 | "nil"
 | call
 | '@' lvalue
 | unop expr %prec unary
-| expr binop expr
+| expr '+' expr
+| expr '-' expr 
+| expr '*' expr 
+| expr '/' expr 
+| expr "div" expr 
+| expr "mod" expr 
+| expr "or" expr 
+| expr "and" expr 
+| expr '=' expr 
+| expr "<>" expr 
+| expr '<' expr 
+| expr "<=" expr 
+| expr '>' expr 
+| expr ">=" expr 
 ;
 
 
 call:
-  t_id "(" ")"
-| t_id "(" moreexpr ")"
+  t_id '(' ')'
+| t_id '(' moreexpr ')'
 ;
 
 
@@ -189,7 +207,7 @@ unop:
 | '-'
 ;
 
-
+/*
 binop:
   '+'
 | '-'
@@ -206,7 +224,7 @@ binop:
 | '>'
 | ">="
 ;
-
+*/
 %%
 
 int main() {
