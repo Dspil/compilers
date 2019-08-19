@@ -1,7 +1,19 @@
 %{
 #include "yyfunc.h"
 #include <stdio.h>
+  
+ast * t;
 %}
+
+%union{
+  ast * a;
+  char c;
+  int n;
+  char* s;
+  long double r;
+  kind k;
+ }
+
 
 %token t_and "and"
 %token t_array "array"
@@ -35,11 +47,11 @@
 %token t_true "true"
 %token t_var "var"
 %token t_while "while"
-%token t_id
-%token t_real_const 
-%token t_int_const
-%token t_char_const
-%token t_string_const
+%token<s> t_id
+%token<r> t_real_const 
+%token<n> t_int_const
+%token<c> t_char_const
+%token<s> t_string_const
 %token t_neq "<>"
 %token t_geq ">="
 %token t_leq "<="
@@ -52,159 +64,177 @@
 %nonassoc '@' '^'
 %left unary
 
-
+%type<a> program
+%type<a> body
+%type<a> moreid
+%type<a> localvar
+%type<a> local
+%type<a> header
+%type<a> moreformal
+%type<a> formal
+%type<a> type
+%type<a> morestmt
+%type<a> stmt
+%type<a> moreexpr
+%type<a> expr
+%type<a> lvalue
+%type<a> rvalue
+%type<a> call
+%type<a> block
+%type<k> unop
 %%
 
 program:
-  "program" t_id ';' body '.'
+"program" t_id ';' body '.' {t = $$ = ast_program($2, $4);}
 ;
 
 
 body:
-  block
-| local body
+block {$$ = ast_body(NULL, $2);}
+| local body {$$ = ast_body($1, $2);}
 ;
 
 
 moreid:
-  t_id
-| t_id ',' moreid
+t_id {$$ = ast_seq_id($1, NULL);}
+| t_id ',' moreid {$$ = ast_seq_id($1, $3);}
 ;
 
 
 localvar:
-  moreid ':' type ';'
-| moreid ':' type ';' localvar
+moreid ':' type ';' {$$ = ast_seq_local_var(ast_local_var_instance($1, $3), NULL);}
+| moreid ':' type ';' localvar {$$ = ast_seq_local_var(ast_local_var_instance($1, $3), $5);}
 ;
 
   
 local: 
-  "var" localvar
-| "label" moreid ';'
-| header ';' body ';'
-| "forward" header ';'
+"var" localvar {$$ = ast_local(LOCAL_VAR, $2, NULL);}
+| "label" moreid ';' {$$ = ast_local(LABEL, $2, NULL);}
+| header ';' body ';' {$$ = ast_local(DEFINITION, $1, $3);}
+| "forward" header ';' {$$ = ast_local(FORWARD, $2, NULL);}
 ;
 
 
 header:
-  "procedure" t_id '(' ')'
-| "procedure" t_id '(' moreformal ')'
-| "function" t_id '(' ')' ':' type
-| "function" t_id '(' moreformal ')' ':' type
+"procedure" t_id '(' ')' {$$ = ast_header(FUNCTIONN, $2, NULL, NULL);}
+| "procedure" t_id '(' moreformal ')' {$$ = ast_header(PROCEDURE, $2, $4, NULL);}
+| "function" t_id '(' ')' ':' type {$$ = ast_header(FUNCTION, $2, NULL, $7);}
+| "function" t_id '(' moreformal ')' ':' type {$$ = ast_header(FUNCTION, $2, $4, $7);}  
 ;
 
 
 moreformal:
-  formal
-| formal ';' moreformal
+formal {$$ = ast_seq_formal($1, NULL);}
+| formal ';' moreformal {$$ = ast_seq_formal($1, $3);}
 ;
 
 
 formal:
-  "var" moreid ':' type
-| moreid ':' type
+"var" moreid ':' type {$$ = ast_formal(VARREF, $2, $4);}
+| moreid ':' type {$$ = ast_formal(VAR, $1, $3);}
 ;
 
 
 type:
-  "integer"
-| "real"
-| "boolean"
-| "char"
-| "array" "of" type
-| "array" '[' t_int_const ']' "of" type
-| '^' type
+"integer" {$$ = ast_type(INT, -1, NULL);}
+| "real" {$$ = ast_type(REAL, -1, NULL);}
+| "boolean" {$$ = ast_type(BOOL, -1, NULL);}
+| "char" {$$ = ast_type(CHAR, -1, NULL);}
+| "array" "of" type {$$ = ast_type(ARRAY, -1, $3);}
+| "array" '[' t_int_const ']' "of" type {$$ = ast_type(ARRAY, $3, $6);}
+| '^' type {$$ = ast_type(POINTER, -1, $2);}
 ;
 
 
 block:
-  "begin" morestmt "end"
+"begin" morestmt "end" {$$ = ast_begin($2);}
 ;
 
 
 morestmt:
-  stmt
-| stmt ';' morestmt
+stmt {$$ = ast_seq_stmt($1, NULL);}
+| stmt ';' morestmt {$$ = ast_seq_stmt($1, $3);}
 ;
 
 
 stmt:
-| lvalue ":=" expr
-| block
-| call
-| "if" expr "then" stmt
-| "if" expr "then" stmt "else" stmt
-| "while" expr "do" stmt
-| t_id ':' stmt
-| "goto" t_id
-| "return"
-| "new" lvalue
-| "new" '[' expr ']' lvalue
-| "dispose" lvalue
-| "dispose" '[' ']' lvalue
+/* nothing */
+| lvalue ":=" expr {$$ = ast_assign($1, $3);}
+| block {$$ = $1;}
+| call {$$ = $1;}
+| "if" expr "then" stmt {$$ = ast_if($2, $4, NULL);}
+| "if" expr "then" stmt "else" stmt {$$ = ast_if($2, $4, $6);}
+| "while" expr "do" stmt {$$ = ast_while($2, $4);}
+| t_id ':' stmt {$$ = ast_stmt($1, $3);}
+| "goto" t_id {$$ = ast_goto($2);}
+| "return" {$$ = ast_return();}
+| "new" lvalue {$$ = ast_new(NULL, $2);}
+| "new" '[' expr ']' lvalue {$$ = ast_new($3, $5);}
+| "dispose" lvalue {$$ = ast_dispose($3);}
+| "dispose" '[' ']' lvalue {$$ = ast_dispose_array($3);} 
 ;
 
 
 moreexpr:
-  expr
-| expr ',' moreexpr
+expr {$$ = ast_seq_expr($1, NULL);}
+| expr ',' moreexpr {$$ = ast_seq_expr($1, $3);}
 ;
 
 
 expr:
-  lvalue
-| rvalue
+lvalue {$$ = $1;}
+| rvalue {$$ = $1;}
 ;
 
 
 lvalue:
-  lvalue '[' expr ']'
-| lvalue '^' 
-|  t_string_const
-| '(' lvalue ')'
-| t_id
-| "result"
+lvalue '[' expr ']' {$$ = ast_index($1, $3);}
+| lvalue '^' {$$ = ast_op($1, REF, NULL);}
+|  t_string_const {$$ = ast_const(STRING, 0, 0, '\0', 0.0, $1);}
+| '(' lvalue ')' {$$ = $2;}
+| t_id {$$ = $1;}
+| "result" {$$ = ast_result();}
 ;
 
 
 rvalue:
-  t_int_const
-| "true"
-| "false"
-| t_real_const
-| t_char_const
-| '(' rvalue ')'
-| "nil"
-| call
-| '@' lvalue
-| unop expr %prec unary
-| expr '+' expr
-| expr '-' expr 
-| expr '*' expr 
-| expr '/' expr 
-| expr "div" expr 
-| expr "mod" expr 
-| expr "or" expr 
-| expr "and" expr 
-| expr '=' expr 
-| expr "<>" expr 
-| expr '<' expr 
-| expr "<=" expr 
-| expr '>' expr 
-| expr ">=" expr 
+t_int_const {$$ = ast_const(INT, 0, $1, '\0', 0.0, NULL);}
+| "true" {$$ = ast_const(BOOL, 1, 0, '\0', 0.0, NULL);}
+| "false" {$$ = ast_const(BOOL, 0, 0, '\0', 0.0, NULL);}
+| t_real_const {$$ = ast_const(REAL, 0, 0, '\0', $1, NULL);}
+| t_char_const {$$ = ast_const(CHAR, 0, 0, $1, 0.0, NULL);}
+| '(' rvalue ')' {$$ = $2}
+| "nil" {$$ = ast_const(NIL, 0, 0, '\0', 0.0, NULL);}
+| call {$$ = $1;}
+| '@' lvalue {$$ = ast_op($2, DEREF, NULL);}
+| unop expr %prec unary {$$ = ast_op($2, $1, NULL);}
+| expr '+' expr {$$ = ast_op($1, PLUS, $3);}
+| expr '-' expr {$$ = ast_op($1, MINUS, $3);}
+| expr '*' expr {$$ = ast_op($1, TIMES, $3);}
+| expr '/' expr {$$ = ast_op($1, DIVIDE, $3);}
+| expr "div" expr {$$ = ast_op($1, DIV, $3);}
+| expr "mod" expr {$$ = ast_op($1, MOD, $3);}
+| expr "or" expr {$$ = ast_op($1, OR, $3);}
+| expr "and" expr {$$ = ast_op($1, AND, $3);}
+| expr '=' expr {$$ = ast_op($1, EQ, $3);}
+| expr "<>" expr {$$ = ast_op($1, NEQ, $3);}
+| expr '<' expr {$$ = ast_op($1, LESS, $3);}
+| expr "<=" expr {$$ = ast_op($1, LEQ, $3);}
+| expr '>' expr {$$ = ast_op($1, GREATER, $3);}
+| expr ">=" expr {$$ = ast_op($1, GEQ, $3);} 
 ;
 
 
 call:
-  t_id '(' ')'
-| t_id '(' moreexpr ')'
+t_id '(' ')' {$$ = ast_call($1, NULL);}
+| t_id '(' moreexpr ')' {$$ = ast_call($1, $3);}
 ;
 
 
 unop:
-  "not"
-| '+'
-| '-'
+"not" {$$ = NOT}
+| '+' {$$ = PLUS}
+| '-' {$$ = MINUS}
 ;
 
 /*
