@@ -1,9 +1,12 @@
 %{
 #include "yyfunc.h"
 #include <stdio.h>
-  
+#include <stdlib.h>
+#include "ast.h"
+
 ast * t;
 %}
+
 
 %union{
   ast * a;
@@ -12,7 +15,7 @@ ast * t;
   char* s;
   long double r;
   kind k;
- }
+  }
 
 
 %token t_and "and"
@@ -90,7 +93,7 @@ program:
 
 
 body:
-block {$$ = ast_body(NULL, $2);}
+block {$$ = ast_body(NULL, $1);}
 | local body {$$ = ast_body($1, $2);}
 ;
 
@@ -116,9 +119,9 @@ local:
 
 
 header:
-"procedure" t_id '(' ')' {$$ = ast_header(FUNCTIONN, $2, NULL, NULL);}
+"procedure" t_id '(' ')' {$$ = ast_header(PROCEDURE, $2, NULL, NULL);}
 | "procedure" t_id '(' moreformal ')' {$$ = ast_header(PROCEDURE, $2, $4, NULL);}
-| "function" t_id '(' ')' ':' type {$$ = ast_header(FUNCTION, $2, NULL, $7);}
+| "function" t_id '(' ')' ':' type {$$ = ast_header(FUNCTION, $2, NULL, $6);}
 | "function" t_id '(' moreformal ')' ':' type {$$ = ast_header(FUNCTION, $2, $4, $7);}  
 ;
 
@@ -158,7 +161,7 @@ stmt {$$ = ast_seq_stmt($1, NULL);}
 
 
 stmt:
-/* nothing */
+/* nothing */ {$$ = NULL;}
 | lvalue ":=" expr {$$ = ast_assign($1, $3);}
 | block {$$ = $1;}
 | call {$$ = $1;}
@@ -170,8 +173,8 @@ stmt:
 | "return" {$$ = ast_return();}
 | "new" lvalue {$$ = ast_new(NULL, $2);}
 | "new" '[' expr ']' lvalue {$$ = ast_new($3, $5);}
-| "dispose" lvalue {$$ = ast_dispose($3);}
-| "dispose" '[' ']' lvalue {$$ = ast_dispose_array($3);} 
+| "dispose" lvalue {$$ = ast_dispose($2);}
+| "dispose" '[' ']' lvalue {$$ = ast_dispose_array($4);} 
 ;
 
 
@@ -190,7 +193,7 @@ lvalue {$$ = $1;}
 lvalue:
 lvalue '[' expr ']' {$$ = ast_index($1, $3);}
 | lvalue '^' {$$ = ast_op($1, REF, NULL);}
-|  t_string_const {$$ = ast_const(STRING, 0, 0, '\0', 0.0, $1);}
+|  t_string_const {$$ = ast_const(STR_CONST, 0, 0, '\0', 0.0, $1);}
 | '(' lvalue ')' {$$ = $2;}
 | t_id {$$ = $1;}
 | "result" {$$ = ast_result();}
@@ -198,12 +201,12 @@ lvalue '[' expr ']' {$$ = ast_index($1, $3);}
 
 
 rvalue:
-t_int_const {$$ = ast_const(INT, 0, $1, '\0', 0.0, NULL);}
-| "true" {$$ = ast_const(BOOL, 1, 0, '\0', 0.0, NULL);}
-| "false" {$$ = ast_const(BOOL, 0, 0, '\0', 0.0, NULL);}
-| t_real_const {$$ = ast_const(REAL, 0, 0, '\0', $1, NULL);}
-| t_char_const {$$ = ast_const(CHAR, 0, 0, $1, 0.0, NULL);}
-| '(' rvalue ')' {$$ = $2}
+t_int_const {$$ = ast_const(INT_CONST, 0, $1, '\0', 0.0, NULL);}
+| "true" {$$ = ast_const(BOOL_CONST, 1, 0, '\0', 0.0, NULL);}
+| "false" {$$ = ast_const(BOOL_CONST, 0, 0, '\0', 0.0, NULL);}
+| t_real_const {$$ = ast_const(REAL_CONST, 0, 0, '\0', $1, NULL);}
+| t_char_const {$$ = ast_const(CHAR_CONST, 0, 0, $1, 0.0, NULL);}
+| '(' rvalue ')' {$$ = $2;}
 | "nil" {$$ = ast_const(NIL, 0, 0, '\0', 0.0, NULL);}
 | call {$$ = $1;}
 | '@' lvalue {$$ = ast_op($2, DEREF, NULL);}
@@ -232,9 +235,9 @@ t_id '(' ')' {$$ = ast_call($1, NULL);}
 
 
 unop:
-"not" {$$ = NOT}
-| '+' {$$ = PLUS}
-| '-' {$$ = MINUS}
+"not" {$$ = NOT;}
+| '+' {$$ = PLUS;}
+| '-' {$$ = MINUS;}
 ;
 
 /*
