@@ -452,7 +452,7 @@ void print_ast(ast * t) {
     printf("SEQ_EXPR(");
     print_ast(t->left);
     head = t->right;
-    while(head != NULL) {
+    while(head && head->left){
       printf(",");
       print_ast(head->left);
       head = head->right;
@@ -464,7 +464,7 @@ void print_ast(ast * t) {
     printf("SEQ_STMT(");
     print_ast(t->left);
     head = t->right;
-    while(head != NULL) {
+    while(head && head->left) {
       printf(",");
       print_ast(head->left);
       head = head->right;
