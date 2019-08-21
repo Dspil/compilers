@@ -5,6 +5,7 @@
 #include "ast.h"
 
 ast * t;
+
 %}
 
 
@@ -96,7 +97,6 @@ body:
 block {$$ = ast_body(NULL, $1);}
 | local body {$$ = ast_body($1, $2);}
 ;
-
 
 moreid:
 t_id {$$ = ast_seq_id($1, NULL);}
@@ -195,7 +195,7 @@ lvalue '[' expr ']' {$$ = ast_index($1, $3);}
 | lvalue '^' {$$ = ast_op($1, REF, NULL);}
 |  t_string_const {$$ = ast_const(STR_CONST, 0, 0, '\0', 0.0, $1);}
 | '(' lvalue ')' {$$ = $2;}
-| t_id {$$ = $1;}
+| t_id {$$ = ast_id($1);}
 | "result" {$$ = ast_result();}
 ;
 
@@ -261,7 +261,11 @@ binop:
 %%
 
 int main() {
+  //printf("%lu\n", (long)t);
   int result = yyparse();
-  if (result == 0) printf("Success.\n");
+  //printf("%s\n", (char*)(t+4));
+  //printf("etoimo\n");
+  //printf("%lu\n", (long)t);
+  if (result == 0) print_ast(t);
   return result;
 }

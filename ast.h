@@ -19,6 +19,7 @@ typedef struct node {
 
 ast* make_ast(kind k, char* id, char* str, int boolean, int integer, char character, long double real, int size, ast *left, ast *mid, ast *right);
 ast* ast_op(ast *l, kind op, ast *r);
+ast* ast_id(char* id);
 ast* ast_begin(ast * l);
 ast* ast_formal(kind k, ast * l, ast * r);
 ast* ast_dispose(ast * l);
@@ -46,5 +47,5 @@ ast* ast_local(kind k, ast * l, ast * r);
 ast* ast_local_var_instance(ast * l, ast * r);
 ast* ast_seq_local_var(ast * l, ast * r);
 ast* ast_body(ast * l, ast * r);
-
+void print_ast(ast * t);
 #endif

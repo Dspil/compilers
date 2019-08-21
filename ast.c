@@ -17,14 +17,8 @@ ast* make_ast(kind k, char* id, char* str, int boolean, int integer, char charac
   node->boolean = boolean;
   node->character = character;
   node->size = size;
-  if (id) {
-    node->id = (char*)malloc(strlen(id)*sizeof(char));
-    strcpy(node->id, id);
-  }
-  if (str) {
-    node->str = (char*)malloc(strlen(str)*sizeof(char));
-    strcpy(node->str, str);
-  }
+  node->id = id;
+  node->str = str;
   return node;
 }
 
@@ -168,13 +162,20 @@ ast* ast_body(ast * l, ast * r) {
   return make_ast(BODY, NULL, NULL, 0, 0, '\0', 0, 0, l, NULL, r);
 }
 
+ast* ast_id(char* id) {
+   return make_ast(ID, id, NULL, 0, 0, '\0', 0, 0, NULL, NULL, NULL);
+}
+
 
 /* PRINT AST */
 
-ASSIGN
 
 void print_ast(ast * t) {
-  switch (t->kind) {
+  ast * head;
+  if (!t) {
+    return;
+  }
+  switch (t->k) {
 
   case AND:
     printf("AND(");
@@ -198,7 +199,9 @@ void print_ast(ast * t) {
     break;
 
   case BLOCK:
+    printf("BLOCK(");
     print_ast(t->left);
+    printf(")");
     break;
 
   case BOOL:
@@ -211,7 +214,7 @@ void print_ast(ast * t) {
 
   case DISPOSE:
     printf("DISPOSE(");
-    print_ast(t->l);
+    print_ast(t->left);
     break;
 
   case DIV:
@@ -223,13 +226,13 @@ void print_ast(ast * t) {
     break;
 
   case BOOL_CONST:
-    printf("%s", t-boolean ? "true" : "false");
+    printf("%s", t->boolean ? "true" : "false");
     break;
 
   case FORWARD:
     printf("FORWARD(");
-    printf(t->left);
-    print(")");
+    print_ast(t->left);
+    printf(")");
     break;
 
   case GOTO:
@@ -260,7 +263,7 @@ void print_ast(ast * t) {
 
   case NEW:
     printf("NEW(");
-    print_ast(ast->right);
+    print_ast(t->right);
     printf(")");
     break;
 
@@ -294,6 +297,7 @@ void print_ast(ast * t) {
   case PROGRAM:
     printf("PROGRAM(%s, ", t->id);
     print_ast(t->left);
+    printf(")\n");
     break;
 
   case REAL_CONST:
@@ -314,17 +318,17 @@ void print_ast(ast * t) {
 
   case VAR:
     printf("BY_VALUE(");
-    print_ast(ast->left);
+    print_ast(t->left);
     printf(", ");
-    print_ast(ast->right);
+    print_ast(t->right);
     printf(")");
     break;
 
   case WHILE:
     printf("WHILE(");
-    print_ast(ast->left);
-    print(", ");
-    print_ast(ast->right);
+    print_ast(t->left);
+    printf(", ");
+    print_ast(t->right);
     printf(")");
     break;
 
@@ -337,7 +341,7 @@ void print_ast(ast * t) {
     break;
 
   case CHAR_CONST:
-    printf("%c", t->characters);
+    printf("%c", t->character);
     break;
 
   case NEQ:
@@ -447,7 +451,7 @@ void print_ast(ast * t) {
   case SEQ_EXPR:
     printf("SEQ_EXPR(");
     print_ast(t->left);
-    ast * head = t->right;
+    head = t->right;
     while(head != NULL) {
       printf(",");
       print_ast(head->left);
@@ -459,7 +463,7 @@ void print_ast(ast * t) {
   case SEQ_STMT:
     printf("SEQ_STMT(");
     print_ast(t->left);
-    ast * head = t->right;
+    head = t->right;
     while(head != NULL) {
       printf(",");
       print_ast(head->left);
@@ -468,10 +472,14 @@ void print_ast(ast * t) {
     printf(")");
     break;
 
+  case ID:
+    printf("ID(%s)", t->id);
+    break;
+    
   case SEQ_ID:
     printf("SEQ_ID(");
     printf("%s", t->id);
-    ast * head = t->right;
+    head = t->right;
     while(head != NULL) {
       printf(",");
       printf("%s", head->id);
@@ -496,15 +504,17 @@ void print_ast(ast * t) {
     break;
 
   case LABEL:
-	printf("LABEL(");
-	print_ast(t->left);
-	printf(")");
-	break;
+    printf("LABEL(");
+    print_ast(t->left);
+    printf(")");
+    break;
 	
   case BODY:
     printf("BODY(");
-    print_ast(t->left);
-    printf(",");
+    if (t->left) {
+      print_ast(t->left);
+      printf(",");
+    }
     print_ast(t->right);
     printf(")");
     break;
@@ -512,7 +522,7 @@ void print_ast(ast * t) {
   case SEQ_LOCAL_VAR:
     printf("SEQ_LOCAL_VAR(");
     print_ast(t->left);
-    ast * head = t->right;
+    head = t->right;
     while(head != NULL) {
       printf(",");
       print_ast(head->left);
@@ -532,7 +542,7 @@ void print_ast(ast * t) {
   case LOCAL_VAR:
     printf("VAR(");
     print_ast(t->left);
-    ast * head = t->right;
+    head = t->right;
     while(head != NULL) {
       printf(",");
       print_ast(head->left);
@@ -557,6 +567,7 @@ void print_ast(ast * t) {
     case PROCEDURE:
       printf("PROCEDURE(");
       break;
+    default:;
     }
     printf("%s(", t->id);
     if (t->left != NULL)
@@ -572,7 +583,7 @@ void print_ast(ast * t) {
   case SEQ_FORMAL:
     printf("SEQ_FORMAL(");
     print_ast(t->left);
-    ast * head = t->right;
+    head = t->right;
     while(head != NULL) {
       printf(",");
       print_ast(head->left);
@@ -606,5 +617,6 @@ void print_ast(ast * t) {
     print_ast(t->right);
     printf(")");
     break;
+  default:;
   }     
 }
