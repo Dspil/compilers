@@ -4,3 +4,5 @@ lexer.c
 a.out
 parser.output
 parser.tab.c
+*.o
+minibasic
