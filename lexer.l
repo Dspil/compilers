@@ -1,8 +1,8 @@
 %option noyywrap
 
 %{
-#include "ast.h"
-#include "parser.h"
+#include "ast.hpp"
+#include "parser.hpp"
 #include "yyfunc.h"
 void ERROR(char * s);
 %}

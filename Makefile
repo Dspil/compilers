@@ -1,29 +1,37 @@
-.PHONY: clean distclean
+.PHONY: clean distclean default
 
-CC=gcc
-CFLAGS=-Wall
+export SHELL := /bin/bash
 
-default: minibasic
+ifeq ($(shell uname -s),Darwin)
+export PATH := /usr/local/opt/llvm/bin:$(PATH)
+endif
 
-minibasic: parser.o lexer.o ast.o
-	$(CC) $(CFLAGS) -o minibasic $^ -lfl
+CXX=clang++
+CXXFLAGS=-Wall -g -O3
 
-parser.h parser.c: parser.y
-	bison -dv parser.y -o parser.c
 
-lexer.c: lexer.l
-	flex -s -o lexer.c lexer.l
+default: pcl
 
-lexer.o: lexer.c parser.h
+parser.hpp parser.cpp: parser.y
+	bison -dv -o parser.cpp parser.y
 
-parser.o: parser.c
+lexer.cpp: lexer.l
+	flex -s -o lexer.cpp lexer.l
 
-ast.o: ast.c
+parser.o: parser.cpp parser.hpp ast.hpp
 
-lexer.o: lexer.c parser.h
+lexer.o: lexer.cpp parser.hpp
+
+ast.o: ast.cpp ast.hpp
+
+%.o: %.cpp
+	$(CXX) $(CXXFLAGS) -c $<
+
+pcl: lexer.o parser.o ast.o
+	$(CXX) $(CXXFLAGS) -o pcl $^ -lfl
 
 clean:
-	$(RM) *.o *~* parser.h *#* parser.output parser.c lexer.c
+	$(RM) lexer.cpp parser.cpp parser.hpp parser.output a.* *.o *~
 
 distclean: clean
-	$(RM) minibasic
+	$(RM) pcl
