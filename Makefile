@@ -6,8 +6,9 @@ ifeq ($(shell uname -s),Darwin)
 export PATH := /usr/local/opt/llvm/bin:$(PATH)
 endif
 
-CXX=clang++
-CXXFLAGS=-Wall -g -O3
+CXX=g++
+CXXFLAGS=-Wall -g `llvm-config --cxxflags`
+LDFLAGS=`llvm-config --ldflags --system-libs --libs all`
 
 
 default: pcl
@@ -28,7 +29,7 @@ ast.o: ast.cpp ast.hpp
 	$(CXX) $(CXXFLAGS) -c $<
 
 pcl: lexer.o parser.o ast.o
-	$(CXX) $(CXXFLAGS) -o pcl $^ -lfl
+	$(CXX) $(CXXFLAGS) -o pcl $^ $(LDFLAGS) -lfl
 
 clean:
 	$(RM) lexer.cpp parser.cpp parser.hpp parser.output a.* *.o *~

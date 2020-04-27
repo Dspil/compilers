@@ -451,7 +451,7 @@ void print_ast(ast * t) {
     printf("DEREF(");
     print_ast(t->left);
     printf(")");
-    break;    
+    break;
 
   case REF:
     printf("REF(");
@@ -486,7 +486,7 @@ void print_ast(ast * t) {
   case ID:
     printf("ID(%s)", t->id);
     break;
-    
+
   case SEQ_ID:
     printf("SEQ_ID(");
     printf("%s", t->id);
@@ -519,7 +519,7 @@ void print_ast(ast * t) {
     print_ast(t->left);
     printf(")");
     break;
-	
+
   case BODY:
     printf("BODY(");
     if (t->left) {
@@ -541,7 +541,7 @@ void print_ast(ast * t) {
     }
     printf(")");
     break;
-	
+
   case LOCAL_VAR_INSTANCE:
     printf("LOCAL_VAR_INSTANCE(");
     print_ast(t->left);
@@ -549,7 +549,7 @@ void print_ast(ast * t) {
     print_ast(t->right);
     printf(")");
     break;
-	
+
   case LOCAL_VAR:
     printf("VAR(");
     print_ast(t->left);
@@ -569,7 +569,7 @@ void print_ast(ast * t) {
     print_ast(t->right);
     printf(")");
     break;
-	
+
   case HEADER:
     switch (t->k) {
     case FUNCTION:
@@ -602,7 +602,7 @@ void print_ast(ast * t) {
     }
     printf(")");
     break;
-	
+
   case VARREF:
     printf("VARREF(");
     print_ast(t->left);
@@ -610,25 +610,24 @@ void print_ast(ast * t) {
     print_ast(t->right);
     printf(")");
     break;
-	
+
   case STMT:
     printf("STMT_WITH_LABEL(%s, ", t->id);
     print_ast(t->left);
     printf(")");
     break;
-	
+
   case DISPOSE_ARRAY:
     printf("DISPOSE_ARRAY(");
     print_ast(t->left);
     printf(")");
     break;
-	
+
   case ASSIGN:
     printf("ASSIGN(%s,", t->id);
     print_ast(t->right);
     printf(")");
     break;
   default:;
-  }     
+  }
 }
-
