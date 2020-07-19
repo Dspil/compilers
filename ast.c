@@ -619,7 +619,7 @@ void print_ast(ast * t) {
     break;
 
   case ASSIGN:
-    printf("ASSIGN(%s,", t->id);
+    printf("ASSIGN(%s,", t->left->id);
     print_ast(t->right);
     printf(")");
     break;
@@ -810,8 +810,10 @@ int type_check(ast * t, Type ftype) {
     break;
 
   case BLOCK:
+    printf("in block %s\n", table[t->left->k]);
     if (type_check(t->left, ftype)) return 1;
     t->type = NULL;
+    printf("close block\n");
     break;
 
   case BOOL:
@@ -1007,13 +1009,13 @@ int type_check(ast * t, Type ftype) {
     if (type_check(t->left, ftype) || type_check(t->right, ftype)) return 1;
     if (!(t->left->type->kind == TYPE_INTEGER || t->left->type->kind == TYPE_REAL) || !(t->right->type->kind == TYPE_INTEGER || t->right->type->kind == TYPE_REAL)) {
       if (t->k == GEQ)
-        printf("Type Error: \">=\" arguments must be boolean!\n");
+        printf("Type Error: \">=\" arguments must be arithmetic!\n");
       else if (t->k == LEQ)
-        printf("Type Error: \"<=\" arguments must be boolean!\n");
+        printf("Type Error: \"<=\" arguments must be arithmetic!\n");
       else if (t->k == LESS)
-        printf("Type Error: \"<\" arguments must be boolean!\n");
+        printf("Type Error: \"<\" arguments must be arithmetic!\n");
       else
-        printf("Type Error: \">\" arguments must be boolean!\n");
+        printf("Type Error: \">\" arguments must be arithmetic!\n");
       return 1;
     }
     t->type = typeBoolean;
@@ -1096,6 +1098,7 @@ int type_check(ast * t, Type ftype) {
     break;
 
   case CALL:
+    printf("Call %s\n", t->id);
     if (type_check(t->left, ftype)) return 1;
     if (!(p = lookupEntry(t->id, LOOKUP_ALL_SCOPES, true))){
       printf("Error (call function): function %s undeclared!\n", t->id);
@@ -1112,17 +1115,18 @@ int type_check(ast * t, Type ftype) {
         printf("Error (call function): more arguments given to function %s than needed!\n", t->id);
         return 1;
       }
+      printf("%d - %s, %d\n", p1->u.eParameter.type->kind, head->left->id, head->left->type->kind);
       if (p1->u.eParameter.type->kind == TYPE_IARRAY &&
 	    (head->left->type->kind == TYPE_ARRAY ||
 	     head->left->type->kind == TYPE_IARRAY)) {
-	if (!equalType(head->left->type->refType, p1->u.eParameter.type->refType)) {
-	  printf("Error (call function): argument type mismatch to function %s!\n", t->id);
-	  return 1;
-	}
+	        if (!equalType(head->left->type->refType, p1->u.eParameter.type->refType)) {
+	           printf("Error (call function): argument type mismatch to function %s!\n", t->id);
+	           return 1;
+	        }
       }
       else if (!equalType(head->left->type, p1->u.eParameter.type)) {
-	printf("Error (call function): argument type mismatch to function %s!\n", t->id);
-	return 1;
+	       printf("Error (call function): argument type mismatch to function %s!\n", t->id);
+	       return 1;
       }
       head = head->right;
       p1 = p1->u.eParameter.next;
@@ -1135,8 +1139,15 @@ int type_check(ast * t, Type ftype) {
     break;
 
   case BODY:
-    if (t->left && type_check(t->left, ftype)) return 1;
+    printf("BODY\n");
+    printf("run local\n");
+    bool t1 = type_check(t->left, ftype);
+    printf("ran local\n");
+    if (t->left && t1) return 1;
+    printf("run block\n");
     if (type_check(t->right, ftype)) return 1;
+    printf("ran block\n");
+    printf("close BODY\n");
     break;
 
   case SEQ_LOCAL:
