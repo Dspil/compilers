@@ -69,7 +69,7 @@
 #include <stdlib.h>
 #include "ast.h"
 #include "symbol.h"
-  
+
 ast * t;
 
 
