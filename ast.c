@@ -2,17 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "ast.h"
-
-#include <llvm/IR/IRBuilder.h>
-#include <llvm/IR/LegacyPassManager.h>
-#include <llvm/IR/Module.h>
-#include <llvm/IR/Value.h>
-#include <llvm/IR/Verifier.h>
-#include <llvm/Support/raw_ostream.h>
-#include <llvm/Transforms/Scalar.h>
-#if defined(LLVM_VERSION_MAJOR) && LLVM_VERSION_MAJOR >= 4
-#include <llvm/Transforms/Scalar/GVN.h>
-#endif
+#include "symbol.h"
 
 ast* make_ast(kind k, char* id, char* str, int boolean, int integer, char character, long double real, int size, ast *left, ast *mid, ast *right) {
   ast * node;
@@ -30,6 +20,9 @@ ast* make_ast(kind k, char* id, char* str, int boolean, int integer, char charac
   node->size = size;
   node->id = id;
   node->str = str;
+  node->type = NULL;
+  node->sentry = NULL;
+  node->full = true;
   return node;
 }
 
@@ -158,6 +151,10 @@ ast* ast_local(kind k, ast * l, ast * r) {
   return make_ast(k, NULL, NULL, 0, 0, '\0', 0, 0, l, NULL, r);
 }
 
+ast* ast_seq_local(kind k, ast * l, ast * r) {
+  return make_ast(k, NULL, NULL, 0, 0, '\0', 0, 0, l, NULL, r);
+}
+
 
 ast* ast_local_var_instance(ast * l, ast * r) {
   return make_ast(LOCAL_VAR_INSTANCE, NULL, NULL, 0, 0, '\0', 0, 0, l, NULL, r);
@@ -196,16 +193,20 @@ void print_ast(ast * t) {
     printf(")");
     break;
 
-  case ARRAY:
+  case IARRAY:
+    printf("IARRAY_OF(");
+    print_ast(t->left);
+    printf(")");
+    break;
+    
+  case ARRAY:    
     if (t->size > 0) {
       printf("array[%d] of (", t->size);
       print_ast(t->left);
       printf(")");
     }
     else {
-      printf("ARRAY_OF(");
-      print_ast(t->left);
-      printf(")");
+      return;
     }
     break;
 
@@ -530,6 +531,18 @@ void print_ast(ast * t) {
     printf(")");
     break;
 
+  case SEQ_LOCAL:
+    printf("SEQ_LOCAL(");
+    print_ast(t->left);
+    head = t->right;
+    while(head != NULL) {
+      printf(",");
+      print_ast(head->left);
+      head = head->right;
+    }
+    printf(")");
+    break;
+  
   case SEQ_LOCAL_VAR:
     printf("SEQ_LOCAL_VAR(");
     print_ast(t->left);
@@ -565,30 +578,9 @@ void print_ast(ast * t) {
   case DEFINITION:
     printf("DEFINITION(HEADER(");
     print_ast(t->left);
-    printf(")BODY(");
+    printf(")(");
     print_ast(t->right);
-    printf(")");
-    break;
-	
-  case HEADER:
-    switch (t->k) {
-    case FUNCTION:
-      printf("FUNCTION(");
-      break;
-    case PROCEDURE:
-      printf("PROCEDURE(");
-      break;
-    default:;
-    }
-    printf("%s(", t->id);
-    if (t->left != NULL)
-      print_ast(t->left);
-    printf(")");
-    if (t->k == FUNCTION) {
-      printf(" : ");
-      print_ast(t->right);
-    }
-    printf(")");
+    printf("))");
     break;
 
   case SEQ_FORMAL:
@@ -632,3 +624,329 @@ void print_ast(ast * t) {
   }     
 }
 
+int type_check(ast * t, Type ftype) {
+  SymbolEntry *p, *p1;
+  ast *head, *head1;
+  Type tp;
+  int pass_type;
+  if (!t) {
+    return 1;
+  }
+  switch (t->k) {
+
+  case AND:
+  case OR:
+    if (type_check(t->left, ftype) || type_check(t->right, ftype)) return 1;
+    if (t->left->type->kind == TYPE_BOOLEAN && t->right->type->kind == TYPE_BOOLEAN) t->type = typeBoolean;
+    else return 1;
+    break;
+
+  case IARRAY:
+    if (type_check(t->left, ftype)) return 1;
+    t->type = typeIArray(t->left->type);
+    t->full = false;
+    break;
+    
+  case ARRAY:
+    if (type_check(t->left, ftype)) return 1;
+    if (t->size > 0) t->type = typeArray(t->size, t->left->type);
+    else return 1;
+    t->full = t->left->full;
+    break;
+
+  case BLOCK:
+    if (type_check(t->left, ftype)) return 1;
+    t->type = NULL;
+    break;
+
+  case BOOL:
+  case BOOL_CONST:
+    t->type = typeBoolean;
+    break;
+
+  case CHAR:
+  case CHAR_CONST:
+    t->type = typeChar;
+    break;
+
+  case DISPOSE:
+    if (type_check(t->left, ftype)) return 1;
+    if (t->left->type->kind != TYPE_POINTER) return 1;
+    break;
+
+  case DIV:
+  case MOD:
+    if (type_check(t->left, ftype) || type_check(t->right, ftype)) return 1;
+    if (t->left->type->kind == TYPE_INTEGER && t->right->type->kind == TYPE_INTEGER) t->type = typeInteger;
+    else return 1;
+    break;
+
+  case FORWARD:
+    if (type_check(t->left, ftype)) return 1;
+    forwardFunction(t->left->sentry);
+    if (lookupEntry(t->left->sentry->id, LOOKUP_CURRENT_SCOPE, false)) return 1;
+    break;
+
+  case GOTO:
+    if (!lookupEntry(t->str, LOOKUP_CURRENT_SCOPE, true)) return 1;
+    t->type = NULL;
+    break;
+
+  case IF:
+    if (type_check(t->left, ftype) || type_check(t->mid, ftype) || type_check(t->right, ftype)) return 1;
+    if (!(t->left->type->kind == TYPE_BOOLEAN)) return 1;
+    break;
+
+  case INT:
+  case INT_CONST:
+    t->type = typeInteger;
+    break;
+    
+  case NEW:
+    if (!t->left) {
+      if (type_check(t->right, ftype)) return 1;
+      if (t->right->type->kind != TYPE_POINTER || (!t->right->full)) return 1;
+    }
+    else {
+      if (type_check(t->left, ftype) || type_check(t->right, ftype)) return 1;
+      if (t->left->type->kind != TYPE_INTEGER) return 1;
+      if (t->right->type->kind != TYPE_POINTER  || (t->right->type->refType->kind != TYPE_ARRAY && t->left->type->refType->kind != TYPE_IARRAY) || (!t->right->full)) return 1;
+    }
+    break;
+
+  case NIL:
+    t->type = typePointer(NULL);
+    break;
+
+  case NOT:
+    if (type_check(t->left, ftype)) return 1;
+    if (!(t->left->type->kind == TYPE_BOOLEAN)) return 1;
+    t->type = typeBoolean;
+    break;
+
+  case PROCEDURE:
+    t->sentry = newFunction(t->id);
+    openScope();
+    if (t->left) { //t->left : seq_formal (parameters)
+      if (type_check(t->left, ftype)) return 1;
+      head = t->left; //seq_formal
+      while (head) {
+	tp = head->left->right->type;
+	pass_type = head->left->k == VARREF ? PASS_BY_REFERENCE : PASS_BY_VALUE;
+	head1 = head->left->left;
+	while (head1) {
+	  newParameter(head1->left->id, tp, pass_type, t->sentry);
+	  head1 = head1->right;
+	}
+	head = head->right;
+      }
+    }
+    t->type = typeVoid;
+    endFunctionHeader(t->sentry, t->type);
+    break;
+
+  case FUNCTION:
+    t->sentry = newFunction(t->id);
+    openScope();
+    if (t->left) { //t->left : seq_formal (parameters)
+      if (type_check(t->left, ftype)) return 1;
+      head = t->left; //seq_formal
+      while (head) {
+	tp = head->left->right->type;
+	pass_type = head->left->k == VARREF ? PASS_BY_REFERENCE : PASS_BY_VALUE;
+	head1 = head->left->left;
+	while (head1) {
+	  newParameter(head1->left->id, tp, pass_type, t->sentry);
+	  head1 = head1->right;
+	}
+	head = head->right;
+      }
+    }
+    t->type = t->right->type;
+    endFunctionHeader(t->sentry, t->type);
+    break;
+
+  case PROGRAM:
+    openScope();
+    if (type_check(t->left, ftype)) return 1;
+    closeScope();
+    break;
+
+  case REAL:
+  case REAL_CONST:
+    t->type = typeReal;
+    break;
+
+  case RESULT:
+    if (!ftype || ftype->kind == TYPE_VOID) return 1;
+    t->type = ftype;
+    break;
+
+  case VAR:
+    if (type_check(t->right, ftype)) return 1;
+    break;
+
+  case WHILE:
+    if (type_check(t->left, ftype) || type_check(t->right, ftype)) return 1;
+    if (!(t->left->type->kind == TYPE_BOOLEAN)) return 1;
+    break;
+
+  case STR_CONST:
+    t->type = typeArray(strlen(t->str), typeChar);
+    break;
+
+  case NEQ:
+  case EQ:
+    if (type_check(t->left, ftype) || type_check(t->right, ftype)) return 1;
+    if (!((t->left->type->kind == TYPE_INTEGER || t->left->type->kind == TYPE_REAL) && (t->right->type->kind == TYPE_INTEGER || t->right->type->kind == TYPE_REAL)) && (t->left->type->kind != t->right->type->kind)) return 1;
+    t->type = typeBoolean;
+    break;
+    
+  case GEQ:
+  case LEQ:
+  case LESS:
+  case GREATER:
+    if (type_check(t->left, ftype) || type_check(t->right, ftype)) return 1;
+    if (!(t->left->type->kind == TYPE_INTEGER || t->left->type->kind == TYPE_REAL) || !(t->right->type->kind == TYPE_INTEGER || t->right->type->kind == TYPE_REAL)) return 1;
+    t->type = typeBoolean;
+    break;
+
+  case PLUS:
+  case MINUS:
+  case TIMES:
+    if (type_check(t->left, ftype) || type_check(t->right, ftype)) return 1;
+    if (t->left->type->kind == TYPE_INTEGER && t->right->type->kind == TYPE_INTEGER) t->type = typeInteger;
+    else if (t->left->type->kind == TYPE_INTEGER && t->right->type->kind == TYPE_REAL) t->type = typeReal;
+    else if (t->left->type->kind == TYPE_REAL && t->right->type->kind == TYPE_INTEGER) t->type = typeReal;
+    else if (t->left->type->kind == TYPE_REAL && t->right->type->kind == TYPE_REAL) t->type = typeReal;
+    else return 1;
+    break;
+
+  case DIVIDE:
+    if (type_check(t->left, ftype) || type_check(t->right, ftype)) return 1;
+    if ((t->left->type->kind == TYPE_INTEGER ||
+	 t->left->type->kind == TYPE_REAL) &&
+	(t->right->type->kind == TYPE_INTEGER ||
+	 t->right->type->kind == TYPE_REAL)) t->type = typeReal;
+    return 1;
+    break;
+
+  case DEREF:
+    if (type_check(t->left, ftype)) return 1;
+    if (t->left->type) t->type = typePointer(t->left->type);
+    else return 1;
+    break;
+
+  case REF:
+    if (type_check(t->left, ftype)) return 1;
+    if (t->left->type->kind == TYPE_POINTER) t->type = t->left->type->refType;
+    else return 1;
+    break;
+
+  case SEQ_EXPR:
+  case SEQ_STMT:
+    head = t;
+    while (head) {
+      if (type_check(head->left, ftype)) return 1;
+      head = head->right;
+    }
+    break;
+
+  case STMT:
+    if (lookupEntry(t->id, LOOKUP_CURRENT_SCOPE, false)) return 1;
+    newVariable(t->id, typeLabel);
+    if (type_check(t->right, ftype)) return 1;
+    break;
+
+  case INDEX:
+    if (type_check(t->left, ftype) || type_check(t->right, ftype)) return 1;
+    if ((t->left->type->kind == TYPE_ARRAY ||
+	t->left->type->kind == TYPE_IARRAY) &&
+	t->right->type->kind == TYPE_INTEGER) t->type = t->left->type->refType;
+    else return 1;
+    break;
+
+  case CALL:
+    if (type_check(t->left, ftype)) return 1;
+    if (!(p = lookupEntry(t->id, LOOKUP_ALL_SCOPES, true))) return 1;
+    if (p->entryType != ENTRY_FUNCTION) return 1;
+    p1 = p->u.eFunction.firstArgument;
+    head = t->left;
+    while (head) {
+      if (!p1) return 1;
+      if (!equalType(head->left->type, p1->u.eParameter.type)) return 1;
+      head = head->right;
+      p1 = p1->u.eParameter.next;
+    }
+    if (p1) return 1;
+    t->type = p->u.eFunction.resultType;
+    break;
+
+  case BODY:
+    if (t->left && type_check(t->left, ftype)) return 1;
+    if (type_check(t->right, ftype)) return 1;
+    break;
+
+  case SEQ_LOCAL_VAR:
+    head = t;
+    while (head) {
+      if (type_check(head->left, ftype)) return 1;
+      head = head->right;
+    }
+    break;
+	
+  case LOCAL_VAR_INSTANCE:
+    if (type_check(t->right, ftype)) return 1;
+    tp = t->right->type;
+    head = t->left;
+    while (head) {
+      newVariable(head->id, tp);
+      head = head->right;
+    }
+    break;
+	
+  case LOCAL_VAR:
+    if (type_check(t->left, ftype)) return 1;
+    break;
+
+  case DEFINITION:
+    if (type_check(t->left, ftype) || type_check(t->right, t->left->type)) return 1;
+    closeScope();
+    break;
+
+  case SEQ_FORMAL:
+    if (type_check(t->left, ftype)) return 1;
+    head = t->right;
+    while(head != NULL) {
+      if (type_check(head->left, ftype)) return 1;
+      head = head->right;
+    }
+    break;
+    
+  case VARREF:
+    if (type_check(t->right, ftype)) return 1;
+    break;
+		
+  case DISPOSE_ARRAY:
+    if (type_check(t->left, ftype)) return 1;
+    if (t->left->type->kind != TYPE_ARRAY && t->left->type->kind != TYPE_IARRAY) return 1;
+    break;
+
+  case ID:
+    if (!(p = lookupEntry(t->id, LOOKUP_ALL_SCOPES, true))) return 1;
+    t->type = p->u.eVariable.type;
+    break;
+  
+  case ASSIGN:
+    if (type_check(t->left, ftype) || type_check(t->right, ftype)) return 1;
+    if (!equalType(t->left->type, t->right->type)) return 1;
+    break;
+  default:;
+  }
+  return 0;
+}
+
+int type_checking(ast* t) {
+  initSymbolTable(256);
+  return type_check(t, NULL);
+}

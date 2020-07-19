@@ -1,8 +1,9 @@
 #ifndef __AST_H__
 #define __AST_H__
+#include "symbol.h"
 
 typedef enum {
-  AND, ARRAY, BLOCK, BOOL, CHAR, DISPOSE, DIV, BOOL_CONST, FORWARD, FUNCTION, GOTO, IF, INT, MOD, NEW, NIL, NOT, OR, PROCEDURE, PROGRAM, REAL_CONST, REAL, RESULT, RETURN, VAR, WHILE, ID, INT_CONST, STR_CONST, CHAR_CONST, NEQ, GEQ, LEQ, LESS, GREATER, EQ, PLUS, MINUS, TIMES, DIVIDE, DEREF, REF, SEQ_EXPR, SEQ_STMT, SEQ_ID, INDEX, POINTER, CALL, ASSIGN, DISPOSE_ARRAY, STMT, VARREF, SEQ_FORMAL, HEADER, LOCAL, DEFINITION, LOCAL_VAR, LOCAL_VAR_INSTANCE, SEQ_LOCAL_VAR, BODY, LABEL
+  AND, IARRAY, ARRAY, BLOCK, BOOL, CHAR, DISPOSE, DIV, BOOL_CONST, FORWARD, FUNCTION, GOTO, IF, INT, MOD, NEW, NIL, NOT, OR, PROCEDURE, PROGRAM, REAL_CONST, REAL, RESULT, RETURN, VAR, WHILE, ID, INT_CONST, STR_CONST, CHAR_CONST, NEQ, GEQ, LEQ, LESS, GREATER, EQ, PLUS, MINUS, TIMES, DIVIDE, DEREF, REF, SEQ_EXPR, SEQ_STMT, SEQ_ID, INDEX, POINTER, CALL, ASSIGN, STMT, DISPOSE_ARRAY, VARREF, SEQ_FORMAL, LOCAL, SEQ_LOCAL, DEFINITION, LOCAL_VAR, LOCAL_VAR_INSTANCE, SEQ_LOCAL_VAR, BODY, LABEL
 } kind;
 
 typedef struct node {
@@ -14,6 +15,9 @@ typedef struct node {
   char character;
   long double real;
   int size;
+  Type type;
+  SymbolEntry *sentry;
+  bool full;
   struct node *left, *mid, *right;
 } ast;
 
@@ -44,6 +48,7 @@ ast* ast_assign(ast * l, ast * r);
 ast* ast_type(kind k, int size, ast * l); //size -1 for incomplete
 ast* ast_header(kind k, char * id, ast * l, ast * r);
 ast* ast_local(kind k, ast * l, ast * r);
+ast* ast_seq_local(kind k, ast * l, ast * r);
 ast* ast_local_var_instance(ast * l, ast * r);
 ast* ast_seq_local_var(ast * l, ast * r);
 ast* ast_body(ast * l, ast * r);

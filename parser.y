@@ -3,7 +3,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "ast.h"
-
+#include "symbol.h"
+  
 ast * t;
 
 %}
@@ -85,6 +86,7 @@ ast * t;
 %type<a> rvalue
 %type<a> call
 %type<a> block
+%type<a> morelocal
 %type<k> unop
 %%
 
@@ -93,9 +95,13 @@ program:
 ;
 
 
+morelocal:
+/*nothing*/ {$$ = NULL;}
+|local morelocal {$$ = ast_seq_local(SEQ_LOCAL, $1, $2);}
+
 body:
 block {$$ = ast_body(NULL, $1);}
-| local body {$$ = ast_body($1, $2);}
+| morelocal block {$$ = ast_body($1, $2);}
 ;
 
 moreid:
@@ -143,7 +149,7 @@ type:
 | "real" {$$ = ast_type(REAL, -1, NULL);}
 | "boolean" {$$ = ast_type(BOOL, -1, NULL);}
 | "char" {$$ = ast_type(CHAR, -1, NULL);}
-| "array" "of" type {$$ = ast_type(ARRAY, -1, $3);}
+| "array" "of" type {$$ = ast_type(IARRAY, -1, $3);}
 | "array" '[' t_int_const ']' "of" type {$$ = ast_type(ARRAY, $3, $6);}
 | '^' type {$$ = ast_type(POINTER, -1, $2);}
 ;

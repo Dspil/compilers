@@ -1,38 +1,37 @@
-.PHONY: clean distclean default
+.PHONY: clean distclean
 
-export SHELL := /bin/bash
+CC=gcc
+CFLAGS=-Wall
 
-ifeq ($(shell uname -s),Darwin)
-export PATH := /usr/local/opt/llvm/bin:$(PATH)
-endif
+default: minibasic
 
-CXX=g++
-CXXFLAGS=-Wall -g `llvm-config --cxxflags`
-LDFLAGS=`llvm-config --ldflags --system-libs --libs all`
+%.o : %.c
+	$(CC) $(CFLAGS) -c $<
 
+minibasic: parser.o lexer.o ast.o symbol.o error.o general.o
+	$(CC) $(CFLAGS) -o minibasic $^ -lfl
 
-default: pcl
+general.o: general.c general.h error.h
+error.o: error.c general.c error.h
+symbol.o: error.c general.c error.h
+symbtest.o: symbtest.c symbol.h error.h
 
-parser.hpp parser.cpp: parser.y
-	bison -dv -o parser.cpp parser.y
+parser.h parser.c: parser.y
+	bison -dv parser.y -o parser.c
 
-lexer.cpp: lexer.l
-	flex -s -o lexer.cpp lexer.l
+lexer.c: lexer.l
+	flex -s -o lexer.c lexer.l
 
-parser.o: parser.cpp parser.hpp ast.hpp
+lexer.o: lexer.c parser.h
 
-lexer.o: lexer.cpp parser.hpp
+parser.o: parser.c
 
-ast.o: ast.cpp ast.hpp
+ast.o: ast.c
 
-%.o: %.cpp
-	$(CXX) $(CXXFLAGS) -c $<
-
-pcl: lexer.o parser.o ast.o
-	$(CXX) $(CXXFLAGS) -o pcl $^ $(LDFLAGS) -lfl
+lexer.o: lexer.c parser.h
 
 clean:
-	$(RM) lexer.cpp parser.cpp parser.hpp parser.output a.* *.o *~
+	$(RM) *.o *~* parser.h *#* parser.output parser.c lexer.c
 
 distclean: clean
-	$(RM) pcl
+	$(RM) minibasic
