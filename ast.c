@@ -767,6 +767,7 @@ void define_builtins() {
   openScope();
   newParameter("size", typeInteger, PASS_BY_VALUE, p);
   newParameter("s", typeIArray(typeChar), PASS_BY_REFERENCE, p);
+  endFunctionHeader(p, typeVoid);
   closeScope();
 }
 
@@ -810,10 +811,17 @@ int type_check(ast * t, Type ftype) {
     break;
 
   case BLOCK:
-    printf("in block %s\n", table[t->left->k]);
-    if (type_check(t->left, ftype)) return 1;
+    if (type_check(t->left, ftype)) {
+      return 1;
+    }
     t->type = NULL;
-    printf("close block\n");
+    break;
+
+  case BODY:
+    if (t->left && type_check(t->left, ftype)) return 1;
+    if (type_check(t->right, ftype)){
+      return 1;
+    }
     break;
 
   case BOOL:
@@ -865,7 +873,7 @@ int type_check(ast * t, Type ftype) {
     break;
 
   case IF:
-    if (type_check(t->left, ftype) || type_check(t->mid, ftype) || type_check(t->right, ftype)) return 1;
+    if (type_check(t->left, ftype) || type_check(t->mid, ftype) || (t->right && type_check(t->right, ftype))) return 1;
     if (!(t->left->type->kind == TYPE_BOOLEAN)){
       printf("Type Error: if condition must be boolean!\n");
       return 1;
@@ -956,7 +964,9 @@ int type_check(ast * t, Type ftype) {
   case PROGRAM:
     openScope();
     define_builtins();
-    if (type_check(t->left, ftype)) return 1;
+    if (type_check(t->left, ftype)) {
+      return 1;
+    }
     closeScope();
     break;
 
@@ -1071,7 +1081,9 @@ int type_check(ast * t, Type ftype) {
   case SEQ_STMT:
     head = t;
     while (head) {
-      if (type_check(head->left, ftype)) return 1;
+      if (head->left && type_check(head->left, ftype)) {
+        return 1;
+      }
       head = head->right;
     }
     break;
@@ -1085,7 +1097,9 @@ int type_check(ast * t, Type ftype) {
       printf("Error (label): label %s does not exist!\n", t->id);
       return 1;
     }
-    if (type_check(t->right, ftype)) return 1;
+    if (type_check(t->right, ftype)) {
+      return 1;
+    }
     break;
 
   case INDEX:
@@ -1098,8 +1112,7 @@ int type_check(ast * t, Type ftype) {
     break;
 
   case CALL:
-    printf("Call %s\n", t->id);
-    if (type_check(t->left, ftype)) return 1;
+    if (t->left && type_check(t->left, ftype)) return 1;
     if (!(p = lookupEntry(t->id, LOOKUP_ALL_SCOPES, true))){
       printf("Error (call function): function %s undeclared!\n", t->id);
       return 1;
@@ -1115,7 +1128,6 @@ int type_check(ast * t, Type ftype) {
         printf("Error (call function): more arguments given to function %s than needed!\n", t->id);
         return 1;
       }
-      printf("%d - %s, %d\n", p1->u.eParameter.type->kind, head->left->id, head->left->type->kind);
       if (p1->u.eParameter.type->kind == TYPE_IARRAY &&
 	    (head->left->type->kind == TYPE_ARRAY ||
 	     head->left->type->kind == TYPE_IARRAY)) {
@@ -1136,18 +1148,6 @@ int type_check(ast * t, Type ftype) {
       return 1;
     }
     t->type = p->u.eFunction.resultType;
-    break;
-
-  case BODY:
-    printf("BODY\n");
-    printf("run local\n");
-    bool t1 = type_check(t->left, ftype);
-    printf("ran local\n");
-    if (t->left && t1) return 1;
-    printf("run block\n");
-    if (type_check(t->right, ftype)) return 1;
-    printf("ran block\n");
-    printf("close BODY\n");
     break;
 
   case SEQ_LOCAL:

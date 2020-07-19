@@ -1,8 +1,8 @@
 program expr;
 	procedure kao();
 		begin
-			writeString("sdf");
+			writeString("sdf")
 		end;
 begin
-	writeString("kalimera");;
+	writeString("kalimera");
 end.
