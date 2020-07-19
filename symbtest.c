@@ -128,6 +128,13 @@ int main ()
    initSymbolTable(256);
 
    printSymbolTable();
+   openScope();
+   p = newFunction("skata");
+   newParameter("lala", typeInteger, PASS_BY_REFERENCE, p);
+   endFunctionHeader(p, typeInteger);
+   printSymbolTable();
+   closeScope();
+   
 
 /* SOURCE : program p; */
 

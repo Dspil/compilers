@@ -624,6 +624,42 @@ void print_ast(ast * t) {
   }
 }
 
+void define_builtins() {
+  SymbolEntry * p;
+  
+  p = newFunction("writeInteger");
+  openScope();
+  newParameter("n", typeInteger, PASS_BY_VALUE, p);
+  endFunctionHeader(p, typeVoid);
+  closeScope();
+
+  p = newFunction("writeBoolean");
+  openScope();
+  newParameter("b", typeBoolean, PASS_BY_VALUE, p);
+  endFunctionHeader(p, typeVoid);
+  closeScope();
+
+  p = newFunction("writeChar");
+  openScope();
+  newParameter("c", typeChar, PASS_BY_VALUE, p);
+  endFunctionHeader(p, typeVoid);
+  closeScope();
+
+  p = newFunction("writeReal");
+  openScope();
+  newParameter("r", typeReal, PASS_BY_VALUE, p);
+  endFunctionHeader(p, typeVoid);
+  closeScope();
+
+  p = newFunction("writeString");
+  openScope();
+  newParameter("s", typeIArray(typeChar), PASS_BY_REFERENCE, p);
+  endFunctionHeader(p, typeVoid);
+  closeScope();
+
+  
+}
+
 int type_check(ast * t, Type ftype) {
   SymbolEntry *p, *p1;
   ast *head, *head1;
@@ -807,6 +843,7 @@ int type_check(ast * t, Type ftype) {
 
   case PROGRAM:
     openScope();
+    define_builtins();
     if (type_check(t->left, ftype)) return 1;
     closeScope();
     break;
