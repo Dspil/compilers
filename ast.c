@@ -4,6 +4,9 @@
 #include "ast.h"
 #include "symbol.h"
 
+
+char * table[] =  {"AND", "IARRAY", "ARRAY", "BLOCK", "BOOL", "CHAR", "DISPOSE", "DIV", "BOOL_CONST", "FORWARD", "FUNCTION", "GOTO", "IF", "INT", "MOD", "NEW", "NIL", "NOT", "OR", "PROCEDURE", "PROGRAM", "REAL_CONST", "REAL", "RESULT", "RETURN", "VAR", "WHILE", "ID", "INT_CONST", "STR_CONST", "CHAR_CONST", "NEQ", "GEQ", "LEQ", "LESS", "GREATER", "EQ", "PLUS", "MINUS", "TIMES", "DIVIDE", "DEREF", "REF", "SEQ_EXPR", "SEQ_STMT", "SEQ_ID", "INDEX", "POINTER", "CALL", "ASSIGN", "STMT", "DISPOSE_ARRAY", "VARREF", "SEQ_FORMAL", "SEQ_LOCAL", "DEFINITION", "LOCAL_VAR", "LOCAL_VAR_INSTANCE", "SEQ_LOCAL_VAR", "BODY", "LABEL"};
+
 ast* make_ast(kind k, char* id, char* str, int boolean, int integer, char character, long double real, int size, ast *left, ast *mid, ast *right) {
   ast * node;
   if ((node = (ast*)malloc(sizeof(ast))) == NULL) {
@@ -626,7 +629,7 @@ void print_ast(ast * t) {
 
 void define_builtins() {
   SymbolEntry * p;
-  
+
   p = newFunction("writeInteger");
   openScope();
   newParameter("n", typeInteger, PASS_BY_VALUE, p);
@@ -772,7 +775,6 @@ int type_check(ast * t, Type ftype) {
   ast *head, *head1;
   Type tp;
   int pass_type;
-  printSymbolTable();
   if (!t) {
     return 1;
   }
@@ -916,12 +918,9 @@ int type_check(ast * t, Type ftype) {
       while (head) {
         tp = head->left->right->type;
         pass_type = head->left->k == VARREF ? PASS_BY_REFERENCE : PASS_BY_VALUE;
-	printType(tp);
         head1 = head->left->left;
       	while (head1) {
-	  printType(head1->type);
-	  printf("%s", head1->id);
-      	  newParameter(head1->left->id, tp, pass_type, t->sentry);
+      	  newParameter(head1->id, tp, pass_type, t->sentry);
       	  head1 = head1->right;
       	}
         head = head->right;
@@ -1123,7 +1122,7 @@ int type_check(ast * t, Type ftype) {
       }
       else if (!equalType(head->left->type, p1->u.eParameter.type)) {
 	printf("Error (call function): argument type mismatch to function %s!\n", t->id);
-	return 1;   
+	return 1;
       }
       head = head->right;
       p1 = p1->u.eParameter.next;
@@ -1140,14 +1139,14 @@ int type_check(ast * t, Type ftype) {
     if (type_check(t->right, ftype)) return 1;
     break;
 
-  case SEQ_LOCAL: 
+  case SEQ_LOCAL:
     head = t;
     while (head) {
       if (type_check(head->left, ftype)) return 1;
       head = head->right;
     }
     break;
-  
+
   case SEQ_LOCAL_VAR:
     head = t;
     while (head) {
@@ -1176,8 +1175,7 @@ int type_check(ast * t, Type ftype) {
     break;
 
   case SEQ_FORMAL:
-    if (type_check(t->left, ftype)) return 1;
-    head = t->right;
+    head = t;
     while(head != NULL) {
       if (type_check(head->left, ftype)) return 1;
       head = head->right;
@@ -1221,7 +1219,7 @@ int type_check(ast * t, Type ftype) {
     }
     break;
 
-  case POINTER: 
+  case POINTER:
     if (type_check(t->left, ftype)) return 1;
     t->type = typePointer(t->left->type);
     break;
