@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include "ast.h"
 #include "symbol.h"
-  
+
 ast * t;
 
 %}
@@ -53,7 +53,7 @@ ast * t;
 %token t_var "var"
 %token t_while "while"
 %token<s> t_id
-%token<r> t_real_const 
+%token<r> t_real_const
 %token<n> t_int_const
 %token<c> t_char_const
 %token<s> t_string_const
@@ -115,8 +115,8 @@ moreid ':' type ';' {$$ = ast_seq_local_var(ast_local_var_instance($1, $3), NULL
 | moreid ':' type ';' localvar {$$ = ast_seq_local_var(ast_local_var_instance($1, $3), $5);}
 ;
 
-  
-local: 
+
+local:
 "var" localvar {$$ = ast_local(LOCAL_VAR, $2, NULL);}
 | "label" moreid ';' {$$ = ast_local(LABEL, $2, NULL);}
 | header ';' body ';' {$$ = ast_local(DEFINITION, $1, $3);}
@@ -128,7 +128,7 @@ header:
 "procedure" t_id '(' ')' {$$ = ast_header(PROCEDURE, $2, NULL, NULL);}
 | "procedure" t_id '(' moreformal ')' {$$ = ast_header(PROCEDURE, $2, $4, NULL);}
 | "function" t_id '(' ')' ':' type {$$ = ast_header(FUNCTION, $2, NULL, $6);}
-| "function" t_id '(' moreformal ')' ':' type {$$ = ast_header(FUNCTION, $2, $4, $7);}  
+| "function" t_id '(' moreformal ')' ':' type {$$ = ast_header(FUNCTION, $2, $4, $7);}
 ;
 
 
@@ -180,7 +180,7 @@ stmt:
 | "new" lvalue {$$ = ast_new(NULL, $2);}
 | "new" '[' expr ']' lvalue {$$ = ast_new($3, $5);}
 | "dispose" lvalue {$$ = ast_dispose($2);}
-| "dispose" '[' ']' lvalue {$$ = ast_dispose_array($4);} 
+| "dispose" '[' ']' lvalue {$$ = ast_dispose_array($4);}
 ;
 
 
@@ -230,7 +230,7 @@ t_int_const {$$ = ast_const(INT_CONST, 0, $1, '\0', 0.0, NULL);}
 | expr '<' expr {$$ = ast_op($1, LESS, $3);}
 | expr "<=" expr {$$ = ast_op($1, LEQ, $3);}
 | expr '>' expr {$$ = ast_op($1, GREATER, $3);}
-| expr ">=" expr {$$ = ast_op($1, GEQ, $3);} 
+| expr ">=" expr {$$ = ast_op($1, GEQ, $3);}
 ;
 
 
@@ -272,6 +272,6 @@ int main() {
   //printf("%s\n", (char*)(t+4));
   //printf("etoimo\n");
   //printf("%lu\n", (long)t);
-  if (result == 0) print_ast(t);
+  if (result == 0) type_checking(t);
   return result;
 }

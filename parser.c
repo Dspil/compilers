@@ -69,7 +69,7 @@
 #include <stdlib.h>
 #include "ast.h"
 #include "symbol.h"
-  
+
 ast * t;
 
 
@@ -2163,6 +2163,6 @@ int main() {
   //printf("%s\n", (char*)(t+4));
   //printf("etoimo\n");
   //printf("%lu\n", (long)t);
-  if (result == 0) print_ast(t);
+  if (result == 0) type_checking(t);
   return result;
 }
