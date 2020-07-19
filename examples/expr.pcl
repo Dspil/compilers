@@ -1,5 +1,8 @@
 program expr;
+	procedure kao();
+		begin
+			writeString("sdf");
+		end;
 begin
-	var x : integer;
-	x = 3 + 2;
+	writeString("kalimera");;
 end.
