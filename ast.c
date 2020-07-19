@@ -198,8 +198,8 @@ void print_ast(ast * t) {
     print_ast(t->left);
     printf(")");
     break;
-    
-  case ARRAY:    
+
+  case ARRAY:
     if (t->size > 0) {
       printf("array[%d] of (", t->size);
       print_ast(t->left);
@@ -452,7 +452,7 @@ void print_ast(ast * t) {
     printf("DEREF(");
     print_ast(t->left);
     printf(")");
-    break;    
+    break;
 
   case REF:
     printf("REF(");
@@ -487,7 +487,7 @@ void print_ast(ast * t) {
   case ID:
     printf("ID(%s)", t->id);
     break;
-    
+
   case SEQ_ID:
     printf("SEQ_ID(");
     printf("%s", t->id);
@@ -520,7 +520,7 @@ void print_ast(ast * t) {
     print_ast(t->left);
     printf(")");
     break;
-	
+
   case BODY:
     printf("BODY(");
     if (t->left) {
@@ -542,7 +542,7 @@ void print_ast(ast * t) {
     }
     printf(")");
     break;
-  
+
   case SEQ_LOCAL_VAR:
     printf("SEQ_LOCAL_VAR(");
     print_ast(t->left);
@@ -554,7 +554,7 @@ void print_ast(ast * t) {
     }
     printf(")");
     break;
-	
+
   case LOCAL_VAR_INSTANCE:
     printf("LOCAL_VAR_INSTANCE(");
     print_ast(t->left);
@@ -562,7 +562,7 @@ void print_ast(ast * t) {
     print_ast(t->right);
     printf(")");
     break;
-	
+
   case LOCAL_VAR:
     printf("VAR(");
     print_ast(t->left);
@@ -594,7 +594,7 @@ void print_ast(ast * t) {
     }
     printf(")");
     break;
-	
+
   case VARREF:
     printf("VARREF(");
     print_ast(t->left);
@@ -602,26 +602,26 @@ void print_ast(ast * t) {
     print_ast(t->right);
     printf(")");
     break;
-	
+
   case STMT:
     printf("STMT_WITH_LABEL(%s, ", t->id);
     print_ast(t->left);
     printf(")");
     break;
-	
+
   case DISPOSE_ARRAY:
     printf("DISPOSE_ARRAY(");
     print_ast(t->left);
     printf(")");
     break;
-	
+
   case ASSIGN:
     printf("ASSIGN(%s,", t->id);
     print_ast(t->right);
     printf(")");
     break;
   default:;
-  }     
+  }
 }
 
 int type_check(ast * t, Type ftype) {
@@ -638,7 +638,13 @@ int type_check(ast * t, Type ftype) {
   case OR:
     if (type_check(t->left, ftype) || type_check(t->right, ftype)) return 1;
     if (t->left->type->kind == TYPE_BOOLEAN && t->right->type->kind == TYPE_BOOLEAN) t->type = typeBoolean;
-    else return 1;
+    else {
+      if (t->k == AND)
+        printf("Type error: \"and\" arguments must be boolean!\n");
+      else
+        printf("Type error: \"or\" arguments must be boolean!\n");
+      return 1;
+    }
     break;
 
   case IARRAY:
@@ -646,11 +652,14 @@ int type_check(ast * t, Type ftype) {
     t->type = typeIArray(t->left->type);
     t->full = false;
     break;
-    
+
   case ARRAY:
     if (type_check(t->left, ftype)) return 1;
     if (t->size > 0) t->type = typeArray(t->size, t->left->type);
-    else return 1;
+    else {
+      printf("Type error: size of array must be positive!\n");
+      return 1;
+    }
     t->full = t->left->full;
     break;
 
@@ -671,46 +680,73 @@ int type_check(ast * t, Type ftype) {
 
   case DISPOSE:
     if (type_check(t->left, ftype)) return 1;
-    if (t->left->type->kind != TYPE_POINTER) return 1;
+    if (t->left->type->kind != TYPE_POINTER) {
+      printf("Type error: \"dispose\" argument must be pointer!\n");
+      return 1;
+    }
     break;
 
   case DIV:
   case MOD:
     if (type_check(t->left, ftype) || type_check(t->right, ftype)) return 1;
     if (t->left->type->kind == TYPE_INTEGER && t->right->type->kind == TYPE_INTEGER) t->type = typeInteger;
-    else return 1;
+    else {
+      if (t->k == DIV)
+        printf("Type error: \"div\" arguments must be integers!\n");
+      else
+        printf("Type error: \"mod\" arguments must be integers!\n");
+      return 1;
+    }
     break;
 
   case FORWARD:
     if (type_check(t->left, ftype)) return 1;
     forwardFunction(t->left->sentry);
-    if (lookupEntry(t->left->sentry->id, LOOKUP_CURRENT_SCOPE, false)) return 1;
+    if (lookupEntry(t->left->sentry->id, LOOKUP_CURRENT_SCOPE, false)) {
+      printf("Error (forward): function %s already exists!\n", t->left->sentry->id);
+      return 1;
+    }
     break;
 
   case GOTO:
-    if (!lookupEntry(t->str, LOOKUP_CURRENT_SCOPE, true)) return 1;
+    if (!lookupEntry(t->str, LOOKUP_CURRENT_SCOPE, true)){
+      printf("Error (goto): Undefined label %s\n", t->str);
+      return 1;
+    }
     t->type = NULL;
     break;
 
   case IF:
     if (type_check(t->left, ftype) || type_check(t->mid, ftype) || type_check(t->right, ftype)) return 1;
-    if (!(t->left->type->kind == TYPE_BOOLEAN)) return 1;
+    if (!(t->left->type->kind == TYPE_BOOLEAN)){
+      printf("Type Error: if condition must be boolean!\n");
+      return 1;
+    }
     break;
 
   case INT:
   case INT_CONST:
     t->type = typeInteger;
     break;
-    
+
   case NEW:
     if (!t->left) {
       if (type_check(t->right, ftype)) return 1;
-      if (t->right->type->kind != TYPE_POINTER || (!t->right->full)) return 1;
+      if (t->right->type->kind != TYPE_POINTER || (!t->right->full)){
+        printf("Type Error: \"new\" argument must be full type and pointer!\n");
+        return 1;
+      }
     }
     else {
       if (type_check(t->left, ftype) || type_check(t->right, ftype)) return 1;
-      if (t->left->type->kind != TYPE_INTEGER) return 1;
-      if (t->right->type->kind != TYPE_POINTER  || (t->right->type->refType->kind != TYPE_ARRAY && t->left->type->refType->kind != TYPE_IARRAY) || (!t->right->full)) return 1;
+      if (t->left->type->kind != TYPE_INTEGER){
+        printf("Type Error: \"new\" size must be integer!\n");
+        return 1;
+      }
+      if (t->right->type->kind != TYPE_POINTER  || (t->right->type->refType->kind != TYPE_ARRAY && t->left->type->refType->kind != TYPE_IARRAY) || (!t->right->full)){
+        printf("Type Error: \"new\" argument must be pointer to array of a full type!\n");
+        return 1;
+      }
     }
     break;
 
@@ -720,7 +756,10 @@ int type_check(ast * t, Type ftype) {
 
   case NOT:
     if (type_check(t->left, ftype)) return 1;
-    if (!(t->left->type->kind == TYPE_BOOLEAN)) return 1;
+    if (!(t->left->type->kind == TYPE_BOOLEAN)) {
+      printf("Type Error: \"not\" argument must be boolean!\n");
+      return 1;
+    }
     t->type = typeBoolean;
     break;
 
@@ -731,14 +770,14 @@ int type_check(ast * t, Type ftype) {
       if (type_check(t->left, ftype)) return 1;
       head = t->left; //seq_formal
       while (head) {
-	tp = head->left->right->type;
-	pass_type = head->left->k == VARREF ? PASS_BY_REFERENCE : PASS_BY_VALUE;
-	head1 = head->left->left;
-	while (head1) {
-	  newParameter(head1->left->id, tp, pass_type, t->sentry);
-	  head1 = head1->right;
-	}
-	head = head->right;
+        tp = head->left->right->type;
+        pass_type = head->left->k == VARREF ? PASS_BY_REFERENCE : PASS_BY_VALUE;
+        head1 = head->left->left;
+      	while (head1) {
+      	  newParameter(head1->left->id, tp, pass_type, t->sentry);
+      	  head1 = head1->right;
+      	}
+        head = head->right;
       }
     }
     t->type = typeVoid;
@@ -752,14 +791,14 @@ int type_check(ast * t, Type ftype) {
       if (type_check(t->left, ftype)) return 1;
       head = t->left; //seq_formal
       while (head) {
-	tp = head->left->right->type;
-	pass_type = head->left->k == VARREF ? PASS_BY_REFERENCE : PASS_BY_VALUE;
-	head1 = head->left->left;
-	while (head1) {
-	  newParameter(head1->left->id, tp, pass_type, t->sentry);
-	  head1 = head1->right;
-	}
-	head = head->right;
+        tp = head->left->right->type;
+      	pass_type = head->left->k == VARREF ? PASS_BY_REFERENCE : PASS_BY_VALUE;
+      	head1 = head->left->left;
+      	while (head1) {
+      	  newParameter(head1->left->id, tp, pass_type, t->sentry);
+      	  head1 = head1->right;
+      	}
+      	head = head->right;
       }
     }
     t->type = t->right->type;
@@ -778,7 +817,10 @@ int type_check(ast * t, Type ftype) {
     break;
 
   case RESULT:
-    if (!ftype || ftype->kind == TYPE_VOID) return 1;
+    if (!ftype || ftype->kind == TYPE_VOID){
+      printf("Error (result): \"result\" variable can only exist in function body!\n");
+      return 1;
+    }
     t->type = ftype;
     break;
 
@@ -788,7 +830,10 @@ int type_check(ast * t, Type ftype) {
 
   case WHILE:
     if (type_check(t->left, ftype) || type_check(t->right, ftype)) return 1;
-    if (!(t->left->type->kind == TYPE_BOOLEAN)) return 1;
+    if (!(t->left->type->kind == TYPE_BOOLEAN)){
+      printf("Type Error: \"while\" condition must be boolean!\n");
+      return 1;
+    }
     break;
 
   case STR_CONST:
@@ -798,16 +843,32 @@ int type_check(ast * t, Type ftype) {
   case NEQ:
   case EQ:
     if (type_check(t->left, ftype) || type_check(t->right, ftype)) return 1;
-    if (!((t->left->type->kind == TYPE_INTEGER || t->left->type->kind == TYPE_REAL) && (t->right->type->kind == TYPE_INTEGER || t->right->type->kind == TYPE_REAL)) && (t->left->type->kind != t->right->type->kind)) return 1;
+    if (!((t->left->type->kind == TYPE_INTEGER || t->left->type->kind == TYPE_REAL) && (t->right->type->kind == TYPE_INTEGER || t->right->type->kind == TYPE_REAL)) && (t->left->type->kind != t->right->type->kind)){
+      if (t->k == NEQ)
+        printf("Type Error: \"<>\" arguments must be of equal type or arithmetic!\n");
+      else
+        printf("Type Error: \"=\" arguments must be of equal type or arithmetic!\n");
+      return 1;
+    }
     t->type = typeBoolean;
     break;
-    
+
   case GEQ:
   case LEQ:
   case LESS:
   case GREATER:
     if (type_check(t->left, ftype) || type_check(t->right, ftype)) return 1;
-    if (!(t->left->type->kind == TYPE_INTEGER || t->left->type->kind == TYPE_REAL) || !(t->right->type->kind == TYPE_INTEGER || t->right->type->kind == TYPE_REAL)) return 1;
+    if (!(t->left->type->kind == TYPE_INTEGER || t->left->type->kind == TYPE_REAL) || !(t->right->type->kind == TYPE_INTEGER || t->right->type->kind == TYPE_REAL)) {
+      if (t->k == GEQ)
+        printf("Type Error: \">=\" arguments must be boolean!\n");
+      else if (t->k == LEQ)
+        printf("Type Error: \"<=\" arguments must be boolean!\n");
+      else if (t->k == LESS)
+        printf("Type Error: \"<\" arguments must be boolean!\n");
+      else
+        printf("Type Error: \">\" arguments must be boolean!\n");
+      return 1;
+    }
     t->type = typeBoolean;
     break;
 
@@ -819,28 +880,42 @@ int type_check(ast * t, Type ftype) {
     else if (t->left->type->kind == TYPE_INTEGER && t->right->type->kind == TYPE_REAL) t->type = typeReal;
     else if (t->left->type->kind == TYPE_REAL && t->right->type->kind == TYPE_INTEGER) t->type = typeReal;
     else if (t->left->type->kind == TYPE_REAL && t->right->type->kind == TYPE_REAL) t->type = typeReal;
-    else return 1;
+    else {
+      if (t->k == PLUS)
+        printf("Type Error: \"+\" arguments must be arithmetic!\n");
+      else if (t->k == MINUS)
+        printf("Type Error: \"-\" arguments must be arithmetic!\n");
+      else
+        printf("Type Error: \"<\" arguments must be arithmetic!\n");
+      return 1;
+    }
     break;
 
   case DIVIDE:
     if (type_check(t->left, ftype) || type_check(t->right, ftype)) return 1;
-    if ((t->left->type->kind == TYPE_INTEGER ||
-	 t->left->type->kind == TYPE_REAL) &&
-	(t->right->type->kind == TYPE_INTEGER ||
-	 t->right->type->kind == TYPE_REAL)) t->type = typeReal;
-    return 1;
+    if ((t->left->type->kind == TYPE_INTEGER || t->left->type->kind == TYPE_REAL) && (t->right->type->kind == TYPE_INTEGER || t->right->type->kind == TYPE_REAL)) t->type = typeReal;
+    else {
+      printf("Type Error: \"/\" arguments must be arithmetic!\n");
+      return 1;
+    }
     break;
 
   case DEREF:
     if (type_check(t->left, ftype)) return 1;
     if (t->left->type) t->type = typePointer(t->left->type);
-    else return 1;
+    else {
+      printf("Type Error: \"@\" argument must pointer!\n");
+      return 1;
+    }
     break;
 
   case REF:
     if (type_check(t->left, ftype)) return 1;
     if (t->left->type->kind == TYPE_POINTER) t->type = t->left->type->refType;
-    else return 1;
+    else {
+      printf("Type Error: \"^\" argument must be pointer!\n");
+      return 1;
+    }
     break;
 
   case SEQ_EXPR:
@@ -853,32 +928,51 @@ int type_check(ast * t, Type ftype) {
     break;
 
   case STMT:
-    if (lookupEntry(t->id, LOOKUP_CURRENT_SCOPE, false)) return 1;
+    if (lookupEntry(t->id, LOOKUP_CURRENT_SCOPE, false)){
+      printf("Error (label): label %s already exists!\n", t->id);
+      return 1;
+    }
     newVariable(t->id, typeLabel);
     if (type_check(t->right, ftype)) return 1;
     break;
 
   case INDEX:
     if (type_check(t->left, ftype) || type_check(t->right, ftype)) return 1;
-    if ((t->left->type->kind == TYPE_ARRAY ||
-	t->left->type->kind == TYPE_IARRAY) &&
-	t->right->type->kind == TYPE_INTEGER) t->type = t->left->type->refType;
-    else return 1;
+    if ((t->left->type->kind == TYPE_ARRAY || t->left->type->kind == TYPE_IARRAY) && t->right->type->kind == TYPE_INTEGER) t->type = t->left->type->refType;
+    else {
+      printf("Type Error: Can only index an array and index must be integer!\n");
+      return 1;
+    }
     break;
 
   case CALL:
     if (type_check(t->left, ftype)) return 1;
-    if (!(p = lookupEntry(t->id, LOOKUP_ALL_SCOPES, true))) return 1;
-    if (p->entryType != ENTRY_FUNCTION) return 1;
+    if (!(p = lookupEntry(t->id, LOOKUP_ALL_SCOPES, true))){
+      printf("Error (call function): function %s undeclared!\n", t->id);
+      return 1;
+    }
+    if (p->entryType != ENTRY_FUNCTION){
+      printf("Error (call function): function %s undeclared!\n", t->id);
+      return 1;
+    }
     p1 = p->u.eFunction.firstArgument;
     head = t->left;
     while (head) {
-      if (!p1) return 1;
-      if (!equalType(head->left->type, p1->u.eParameter.type)) return 1;
+      if (!p1) {
+        printf("Error (call function): more arguments given to function %s than needed!\n", t->id);
+        return 1;
+      }
+      if (!equalType(head->left->type, p1->u.eParameter.type)) {
+        printf("Error (call function): argument type mismatch to function %s!\n", t->id);
+        return 1;
+      }
       head = head->right;
       p1 = p1->u.eParameter.next;
     }
-    if (p1) return 1;
+    if (p1) {
+      printf("Error (call function): less arguments given to function %s than needed!\n", t->id);
+      return 1;
+    }
     t->type = p->u.eFunction.resultType;
     break;
 
@@ -894,7 +988,7 @@ int type_check(ast * t, Type ftype) {
       head = head->right;
     }
     break;
-	
+
   case LOCAL_VAR_INSTANCE:
     if (type_check(t->right, ftype)) return 1;
     tp = t->right->type;
@@ -904,7 +998,7 @@ int type_check(ast * t, Type ftype) {
       head = head->right;
     }
     break;
-	
+
   case LOCAL_VAR:
     if (type_check(t->left, ftype)) return 1;
     break;
@@ -922,24 +1016,31 @@ int type_check(ast * t, Type ftype) {
       head = head->right;
     }
     break;
-    
+
   case VARREF:
     if (type_check(t->right, ftype)) return 1;
     break;
-		
+
   case DISPOSE_ARRAY:
     if (type_check(t->left, ftype)) return 1;
     if (t->left->type->kind != TYPE_ARRAY && t->left->type->kind != TYPE_IARRAY) return 1;
     break;
 
   case ID:
-    if (!(p = lookupEntry(t->id, LOOKUP_ALL_SCOPES, true))) return 1;
+    if (!(p = lookupEntry(t->id, LOOKUP_ALL_SCOPES, true))){
+      printf("Error (id): variable %s does not exist!\n", t->id);
+      return 1;
+    }
+
     t->type = p->u.eVariable.type;
     break;
-  
+
   case ASSIGN:
     if (type_check(t->left, ftype) || type_check(t->right, ftype)) return 1;
-    if (!equalType(t->left->type, t->right->type)) return 1;
+    if (!equalType(t->left->type, t->right->type)) {
+      printf("Type error: \":=\" arguments must be of equal type\n");
+      return 1;
+    }
     break;
   default:;
   }
