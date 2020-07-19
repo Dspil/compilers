@@ -3,13 +3,13 @@
 CC=gcc
 CFLAGS=-Wall
 
-default: minibasic
+default: pcl
 
 %.o : %.c
 	$(CC) $(CFLAGS) -c $<
 
-minibasic: parser.o lexer.o ast.o symbol.o error.o general.o
-	$(CC) $(CFLAGS) -o minibasic $^ -lfl
+pcl: parser.o lexer.o ast.o symbol.o error.o general.o
+	$(CC) $(CFLAGS) -o pcl $^ -lfl
 
 general.o: general.c general.h error.h
 error.o: error.c general.c error.h
@@ -34,4 +34,4 @@ clean:
 	$(RM) *.o *~* parser.h *#* parser.output parser.c lexer.c
 
 distclean: clean
-	$(RM) minibasic
+	$(RM) pcl

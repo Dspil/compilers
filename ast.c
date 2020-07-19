@@ -657,7 +657,114 @@ void define_builtins() {
   endFunctionHeader(p, typeVoid);
   closeScope();
 
-  
+  p = newFunction("abs");
+  openScope();
+  newParameter("n", typeInteger, PASS_BY_VALUE, p);
+  endFunctionHeader(p, typeInteger);
+  closeScope();
+
+  p = newFunction("fabs");
+  openScope();
+  newParameter("r", typeReal, PASS_BY_VALUE, p);
+  endFunctionHeader(p, typeReal);
+  closeScope();
+
+  p = newFunction("sqrt");
+  openScope();
+  newParameter("r", typeReal, PASS_BY_VALUE, p);
+  endFunctionHeader(p, typeReal);
+  closeScope();
+
+  p = newFunction("sin");
+  openScope();
+  newParameter("r", typeReal, PASS_BY_VALUE, p);
+  endFunctionHeader(p, typeReal);
+  closeScope();
+
+  p = newFunction("cos");
+  openScope();
+  newParameter("r", typeReal, PASS_BY_VALUE, p);
+  endFunctionHeader(p, typeReal);
+  closeScope();
+
+  p = newFunction("tan");
+  openScope();
+  newParameter("r", typeReal, PASS_BY_VALUE, p);
+  endFunctionHeader(p, typeReal);
+  closeScope();
+
+  p = newFunction("arctan");
+  openScope();
+  newParameter("r", typeReal, PASS_BY_VALUE, p);
+  endFunctionHeader(p, typeReal);
+  closeScope();
+
+  p = newFunction("exp");
+  openScope();
+  newParameter("r", typeReal, PASS_BY_VALUE, p);
+  endFunctionHeader(p, typeReal);
+  closeScope();
+
+  p = newFunction("ln");
+  openScope();
+  newParameter("r", typeReal, PASS_BY_VALUE, p);
+  endFunctionHeader(p, typeReal);
+  closeScope();
+
+  p = newFunction("pi");
+  openScope();
+  endFunctionHeader(p, typeReal);
+  closeScope();
+
+  p = newFunction("trunc");
+  openScope();
+  newParameter("r", typeReal, PASS_BY_VALUE, p);
+  endFunctionHeader(p, typeInteger);
+  closeScope();
+
+  p = newFunction("round");
+  openScope();
+  newParameter("r", typeReal, PASS_BY_VALUE, p);
+  endFunctionHeader(p, typeInteger);
+  closeScope();
+
+  p = newFunction("ord");
+  openScope();
+  newParameter("c", typeChar, PASS_BY_VALUE, p);
+  endFunctionHeader(p, typeInteger);
+  closeScope();
+
+  p = newFunction("chr");
+  openScope();
+  newParameter("n", typeInteger, PASS_BY_VALUE, p);
+  endFunctionHeader(p, typeChar);
+  closeScope();
+
+  p = newFunction("readInteger");
+  openScope();
+  endFunctionHeader(p, typeInteger);
+  closeScope();
+
+  p = newFunction("readBoolean");
+  openScope();
+  endFunctionHeader(p, typeBoolean);
+  closeScope();
+
+  p = newFunction("readChar");
+  openScope();
+  endFunctionHeader(p, typeChar);
+  closeScope();
+
+  p = newFunction("readReal");
+  openScope();
+  endFunctionHeader(p, typeReal);
+  closeScope();
+
+  p = newFunction("readString");
+  openScope();
+  newParameter("size", typeInteger, PASS_BY_VALUE, p);
+  newParameter("s", typeIArray(typeChar), PASS_BY_REFERENCE, p);
+  closeScope();
 }
 
 int type_check(ast * t, Type ftype) {
@@ -665,6 +772,7 @@ int type_check(ast * t, Type ftype) {
   ast *head, *head1;
   Type tp;
   int pass_type;
+  printSymbolTable();
   if (!t) {
     return 1;
   }
@@ -808,8 +916,11 @@ int type_check(ast * t, Type ftype) {
       while (head) {
         tp = head->left->right->type;
         pass_type = head->left->k == VARREF ? PASS_BY_REFERENCE : PASS_BY_VALUE;
+	printType(tp);
         head1 = head->left->left;
       	while (head1) {
+	  printType(head1->type);
+	  printf("%s", head1->id);
       	  newParameter(head1->left->id, tp, pass_type, t->sentry);
       	  head1 = head1->right;
       	}
@@ -965,11 +1076,14 @@ int type_check(ast * t, Type ftype) {
     break;
 
   case STMT:
-    if (lookupEntry(t->id, LOOKUP_CURRENT_SCOPE, false)){
-      printf("Error (label): label %s already exists!\n", t->id);
+    if (!(p = lookupEntry(t->id, LOOKUP_CURRENT_SCOPE, true))){
+      printf("Error (label): label %s does not exist!\n", t->id);
       return 1;
     }
-    newVariable(t->id, typeLabel);
+    if (p->u.eVariable.type->kind != TYPE_LABEL) {
+      printf("Error (label): label %s does not exist!\n", t->id);
+      return 1;
+    }
     if (type_check(t->right, ftype)) return 1;
     break;
 
@@ -999,9 +1113,17 @@ int type_check(ast * t, Type ftype) {
         printf("Error (call function): more arguments given to function %s than needed!\n", t->id);
         return 1;
       }
-      if (!equalType(head->left->type, p1->u.eParameter.type)) {
-        printf("Error (call function): argument type mismatch to function %s!\n", t->id);
-        return 1;
+      if (p1->u.eParameter.type->kind == TYPE_IARRAY &&
+	    (head->left->type->kind == TYPE_ARRAY ||
+	     head->left->type->kind == TYPE_IARRAY)) {
+	if (!equalType(head->left->type->refType, p1->u.eParameter.type->refType)) {
+	  printf("Error (call function): argument type mismatch to function %s!\n", t->id);
+	  return 1;
+	}
+      }
+      else if (!equalType(head->left->type, p1->u.eParameter.type)) {
+	printf("Error (call function): argument type mismatch to function %s!\n", t->id);
+	return 1;   
       }
       head = head->right;
       p1 = p1->u.eParameter.next;
@@ -1018,6 +1140,14 @@ int type_check(ast * t, Type ftype) {
     if (type_check(t->right, ftype)) return 1;
     break;
 
+  case SEQ_LOCAL: 
+    head = t;
+    while (head) {
+      if (type_check(head->left, ftype)) return 1;
+      head = head->right;
+    }
+    break;
+  
   case SEQ_LOCAL_VAR:
     head = t;
     while (head) {
@@ -1068,8 +1198,19 @@ int type_check(ast * t, Type ftype) {
       printf("Error (id): variable %s does not exist!\n", t->id);
       return 1;
     }
-
     t->type = p->u.eVariable.type;
+    break;
+
+  case LABEL:
+    head = t->left;
+    while (head) {
+      if (lookupEntry(head->id, LOOKUP_CURRENT_SCOPE, false)) {
+	printf("Error (label): name %s already exists in this scope!\n", head->id);
+	return 1;
+      }
+      newVariable(head->id, typeLabel);
+      head = head->right;
+    }
     break;
 
   case ASSIGN:
@@ -1079,7 +1220,15 @@ int type_check(ast * t, Type ftype) {
       return 1;
     }
     break;
-  default:;
+
+  case POINTER: 
+    if (type_check(t->left, ftype)) return 1;
+    t->type = typePointer(t->left->type);
+    break;
+
+  case SEQ_ID:
+  case RETURN:
+    break;
   }
   return 0;
 }

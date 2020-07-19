@@ -272,6 +272,9 @@ int main() {
   //printf("%s\n", (char*)(t+4));
   //printf("etoimo\n");
   //printf("%lu\n", (long)t);
-  if (result == 0) type_checking(t);
+  if (result == 0) {
+    print_ast(t);
+    type_checking(t);
+  }
   return result;
 }
