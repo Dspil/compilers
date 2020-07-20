@@ -1,5 +1,5 @@
 program expr;
-	procedure kao();
+	function kao() : integer;
 		begin
 			writeString("sdf")
 		end;
