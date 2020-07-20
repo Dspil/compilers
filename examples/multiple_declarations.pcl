@@ -2,8 +2,8 @@ program expr;
 	var x : integer;
 	var y : integer;
 	procedure kao();
+		var x : real;
 		begin
-			var x : real;
 			writeString("sdf");
 			writeReal(x / y);
 		end;
@@ -14,10 +14,10 @@ program expr;
 				 result := trunc(x);
 			end;
 		begin
-			y := 
+			y := 0.1;
 			writeInteger(x);
-			TruncReal(y);
+			writeInteger(TruncReal(y));
 		end;
 begin
-	writeInteger(kai(x);
+	kai();
 end.

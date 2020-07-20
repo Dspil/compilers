@@ -957,6 +957,9 @@ int type_check(ast * t, Type ftype) {
       	head = head->right;
       }
     }
+    if (type_check(t->right, ftype)) {
+      return 1;
+    }
     t->type = t->right->type;
     endFunctionHeader(t->sentry, t->type);
     break;
@@ -980,7 +983,8 @@ int type_check(ast * t, Type ftype) {
       printf("Error (result): \"result\" variable can only exist in function body!\n");
       return 1;
     }
-    t->type = ftype;
+    if(lookupEntry("result", LOOKUP_CURRENT_SCOPE, false)) t->type = ftype;
+    else t->type = typeVoid;
     break;
 
   case VAR:
@@ -1182,6 +1186,9 @@ int type_check(ast * t, Type ftype) {
 
   case DEFINITION:
     if (type_check(t->left, ftype) || type_check(t->right, t->left->type)) return 1;
+    if (t->left->k == FUNCTION && !lookupEntry("result", LOOKUP_CURRENT_SCOPE, false)) {
+      printf("Error (function %s): Functions must assign to result!\n", t->left->id);
+    }
     closeScope();
     break;
 
@@ -1207,7 +1214,12 @@ int type_check(ast * t, Type ftype) {
       printf("Error (id): variable %s does not exist!\n", t->id);
       return 1;
     }
-    t->type = p->u.eVariable.type;
+    if (p->u.eVariable.type)
+      t->type = p->u.eVariable.type;
+    else {
+      printf("Error (id): variable %s does not exist!\n", t->id);
+      return 1;
+    }
     break;
 
   case LABEL:
@@ -1223,7 +1235,13 @@ int type_check(ast * t, Type ftype) {
     break;
 
   case ASSIGN:
-    if (type_check(t->left, ftype) || type_check(t->right, ftype)) return 1;
+    if (type_check(t->left, ftype) || type_check(t->right, ftype)) {
+      return 1;
+    }
+    if (t->left->k == RESULT && !(lookupEntry("result", LOOKUP_CURRENT_SCOPE, false))) {
+      newVariable("result", ftype);
+      t->left->type = ftype;
+    }
     if (!equalType(t->left->type, t->right->type)) {
       printf("Type error: \":=\" arguments must be of equal type\n");
       return 1;
@@ -1236,6 +1254,8 @@ int type_check(ast * t, Type ftype) {
     break;
 
   case SEQ_ID:
+    break;
+
   case RETURN:
     break;
   }
