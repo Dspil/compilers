@@ -1,0 +1,11 @@
+program expr;
+	var x : Integer;
+	procedure kao();
+		var x : array of char;
+		begin
+			writeString("sdf");
+			writeString(x)
+		end;
+begin
+	writeString("kalimera");
+end.
