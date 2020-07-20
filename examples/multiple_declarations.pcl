@@ -1,11 +1,23 @@
 program expr;
-	var x : Integer;
+	var x : integer;
+	var y : integer;
 	procedure kao();
-		var x : array of char;
 		begin
+			var x : real;
 			writeString("sdf");
-			writeString(x)
+			writeReal(x / y);
+		end;
+	procedure kai();
+		var y : real;
+		function TruncReal(x : real) : integer;
+			begin
+				 result := trunc(x);
+			end;
+		begin
+			y := 
+			writeInteger(x);
+			TruncReal(y);
 		end;
 begin
-	writeString("kalimera");
+	writeInteger(kai(x);
 end.

@@ -951,7 +951,7 @@ int type_check(ast * t, Type ftype) {
       	pass_type = head->left->k == VARREF ? PASS_BY_REFERENCE : PASS_BY_VALUE;
       	head1 = head->left->left;
       	while (head1) {
-      	  newParameter(head1->left->id, tp, pass_type, t->sentry);
+      	  newParameter(head1->id, tp, pass_type, t->sentry);
       	  head1 = head1->right;
       	}
       	head = head->right;
