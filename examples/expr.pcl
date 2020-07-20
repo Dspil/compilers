@@ -1,8 +1,6 @@
 program expr;
-	function kao() : integer;
-		begin
-			writeString("sdf")
-		end;
+	var x : integer;
 begin
-	writeString("kalimera");
+	writeString := writeString;
+	x := writeString + writeInteger(4);
 end.
