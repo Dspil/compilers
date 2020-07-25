@@ -28,6 +28,8 @@
    --------------------------------------------------------------------- */
 
 #include <stdbool.h>
+#include <llvm/IR/Value.h>
+
 
 /*
  *  Αν το παραπάνω include δεν υποστηρίζεται από την υλοποίηση
@@ -62,21 +64,29 @@ typedef const char *  RepString;          /* Συμβολοσειρές         
 
 /* Τύποι δεδομένων και αποτελέσματος συναρτήσεων */
 
-typedef struct Type_tag * Type;
+typedef struct Type_tag * PclType;
+
+typedef enum {                               /***** Το είδος του τύπου ****/
+   TYPE_VOID,                        /* Κενός τύπος αποτελέσματος */
+   TYPE_INTEGER,                     /* Ακέραιοι                  */
+   TYPE_BOOLEAN,                     /* Λογικές τιμές             */
+   TYPE_CHAR,                        /* Χαρακτήρες                */
+   TYPE_REAL,                        /* Πραγματικοί               */
+   TYPE_ARRAY,                       /* Πίνακες γνωστού μεγέθους  */
+   TYPE_IARRAY,                      /* Πίνακες άγνωστου μεγέθους */
+   TYPE_POINTER,                     /* Δείκτες                   */
+   TYPE_LABEL                        /* Ταμπέλες                  */
+} TypeKind;
+
+typedef enum {                               /* Κατάσταση παραμέτρων  */
+	PARDEF_COMPLETE,                    /* Πλήρης ορισμός     */
+	PARDEF_DEFINE,                      /* Εν μέσω ορισμού    */
+	PARDEF_CHECK                        /* Εν μέσω ελέγχου    */
+} ParDef;
 
 struct Type_tag {
-    enum {                               /***** Το είδος του τύπου ****/
-       TYPE_VOID,                        /* Κενός τύπος αποτελέσματος */
-       TYPE_INTEGER,                     /* Ακέραιοι                  */
-       TYPE_BOOLEAN,                     /* Λογικές τιμές             */
-       TYPE_CHAR,                        /* Χαρακτήρες                */
-       TYPE_REAL,                        /* Πραγματικοί               */
-       TYPE_ARRAY,                       /* Πίνακες γνωστού μεγέθους  */
-       TYPE_IARRAY,                      /* Πίνακες άγνωστου μεγέθους */
-       TYPE_POINTER,                     /* Δείκτες                   */
-       TYPE_LABEL                        /* Ταμπέλες                  */
-    } kind;
-    Type           refType;              /* Τύπος αναφοράς            */
+    TypeKind kind;
+    PclType        refType;           /* Τύπος αναφοράς            */
     RepInteger     size;                 /* Μέγεθος, αν είναι πίνακας */
     unsigned int   refCount;             /* Μετρητής αναφορών         */
 };
@@ -84,7 +94,7 @@ struct Type_tag {
 
 /* Τύποι εγγραφών του πίνακα συμβόλων */
 
-typedef enum {            
+typedef enum {
    ENTRY_VARIABLE,                       /* Μεταβλητές                 */
    ENTRY_CONSTANT,                       /* Σταθερές                   */
    ENTRY_FUNCTION,                       /* Συναρτήσεις                */
@@ -95,7 +105,7 @@ typedef enum {
 
 /* Τύποι περάσματος παραμετρων */
 
-typedef enum {            
+typedef enum {
    PASS_BY_VALUE,                        /* Κατ' αξία                  */
    PASS_BY_REFERENCE                     /* Κατ' αναφορά               */
 } PassMode;
@@ -116,12 +126,12 @@ struct SymbolEntry_tag {
    union {                            /* Ανάλογα με τον τύπο εγγραφής: */
 
       struct {                                /******* Μεταβλητή *******/
-         Type          type;                  /* Τύπος                 */
+         PclType          type;               /* Τύπος                 */
          int           offset;                /* Offset στο Ε.Δ.       */
       } eVariable;
 
       struct {                                /******** Σταθερά ********/
-         Type          type;                  /* Τύπος                 */
+         PclType          type;               /* Τύπος                 */
          union {                              /* Τιμή                  */
             RepInteger vInteger;              /*    ακέραια            */
             RepBoolean vBoolean;              /*    λογική             */
@@ -135,24 +145,21 @@ struct SymbolEntry_tag {
          bool          isForward;             /* Δήλωση forward        */
          SymbolEntry * firstArgument;         /* Λίστα παραμέτρων      */
          SymbolEntry * lastArgument;          /* Τελευταία παράμετρος  */
-         Type          resultType;            /* Τύπος αποτελέσματος   */
-         enum {                               /* Κατάσταση παραμέτρων  */
-             PARDEF_COMPLETE,                    /* Πλήρης ορισμός     */
-             PARDEF_DEFINE,                      /* Εν μέσω ορισμού    */
-             PARDEF_CHECK                        /* Εν μέσω ελέγχου    */
-         } pardef;
+         PclType       resultType;            /* Τύπος αποτελέσματος   */
+         ParDef pardef;
          int           firstQuad;             /* Αρχική τετράδα        */
+		 llvm::Function*     llvmFunc;        /* Πεδίο για χρήση μόνο στο llvm */
       } eFunction;
 
       struct {                                /****** Παράμετρος *******/
-         Type          type;                  /* Τύπος                 */
+         PclType       type;                  /* Τύπος                 */
          int           offset;                /* Offset στο Ε.Δ.       */
          PassMode      mode;                  /* Τρόπος περάσματος     */
          SymbolEntry * next;                  /* Επόμενη παράμετρος    */
       } eParameter;
 
       struct {                                /** Προσωρινή μεταβλητή **/
-         Type          type;                  /* Τύπος                 */
+         PclType          type;                  /* Τύπος                 */
          int           offset;                /* Offset στο Ε.Δ.       */
          int           number;
       } eTemporary;
@@ -189,12 +196,12 @@ extern Scope        * currentScope;       /* Τρέχουσα εμβέλεια  
 extern unsigned int   quadNext;           /* Αριθμός επόμενης τετράδας */
 extern unsigned int   tempNumber;         /* Αρίθμηση των temporaries  */
 
-extern const Type typeVoid;
-extern const Type typeInteger;
-extern const Type typeBoolean;
-extern const Type typeChar;
-extern const Type typeReal;
-extern const Type typeLabel;
+extern const PclType typeVoid;
+extern const PclType typeInteger;
+extern const PclType typeBoolean;
+extern const PclType typeChar;
+extern const PclType typeReal;
+extern const PclType typeLabel;
 
 
 /* ---------------------------------------------------------------------
@@ -207,26 +214,26 @@ void          destroySymbolTable (void);
 void          openScope          (void);
 void          closeScope         (void);
 
-SymbolEntry * newVariable        (const char * name, Type type);
-SymbolEntry * newConstant        (const char * name, Type type, ...);
+SymbolEntry * newVariable        (const char * name, PclType type);
+SymbolEntry * newConstant        (const char * name, PclType type, ...);
 SymbolEntry * newFunction        (const char * name);
-SymbolEntry * newParameter       (const char * name, Type type,
+SymbolEntry * newParameter       (const char * name, PclType type,
                                   PassMode mode, SymbolEntry * f);
-SymbolEntry * newTemporary       (Type type);
+SymbolEntry * newTemporary       (PclType type);
 
 void          forwardFunction    (SymbolEntry * f);
-void          endFunctionHeader  (SymbolEntry * f, Type type);
+void          endFunctionHeader  (SymbolEntry * f, PclType type);
 void          destroyEntry       (SymbolEntry * e);
 SymbolEntry * lookupEntry        (const char * name, LookupType type,
                                   bool err);
 
-Type          typeArray          (RepInteger size, Type refType);
-Type          typeIArray         (Type refType);
-Type          typePointer        (Type refType);
-void          destroyType        (Type type);
-unsigned int  sizeOfType         (Type type);
-bool          equalType          (Type type1, Type type2);
-void          printType          (Type type);
+PclType          typeArray          (RepInteger size, PclType refType);
+PclType          typeIArray         (PclType refType);
+PclType          typePointer        (PclType refType);
+void          destroyType        (PclType type);
+unsigned int  sizeOfType         (PclType type);
+bool          equalType          (PclType type1, PclType type2);
+void          printType          (PclType type);
 void          printMode          (PassMode mode);
 void          printSymbolTable   ();
 

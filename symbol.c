@@ -52,12 +52,12 @@ static struct Type_tag typeConst [] = {
   { TYPE_LABEL,   NULL, 0, 0 }
 };
 
-const Type typeVoid    = &(typeConst[0]);
-const Type typeInteger = &(typeConst[1]);
-const Type typeBoolean = &(typeConst[2]);
-const Type typeChar    = &(typeConst[3]);
-const Type typeReal    = &(typeConst[4]);
-const Type typeLabel   = &(typeConst[5]);
+const PclType typeVoid    = &(typeConst[0]);
+const PclType typeInteger = &(typeConst[1]);
+const PclType typeBoolean = &(typeConst[2]);
+const PclType typeChar    = &(typeConst[3]);
+const PclType typeReal    = &(typeConst[4]);
+const PclType typeLabel   = &(typeConst[5]);
 
 
 /* ---------------------------------------------------------------------
@@ -149,7 +149,7 @@ void initSymbolTable (unsigned int size)
   /* Αρχικοποίηση του πίνακα κατακερματισμού */
 
   hashTableSize = size;
-  hashTable = (SymbolEntry **) new(size * sizeof(SymbolEntry *));
+  hashTable = (SymbolEntry **) new1(size * sizeof(SymbolEntry *));
 
   for (i = 0; i < size; i++)
     hashTable[i] = NULL;
@@ -165,12 +165,12 @@ void destroySymbolTable ()
     if (hashTable[i] != NULL)
       destroyEntry(hashTable[i]);
 
-  delete(hashTable);
+  delete1(hashTable);
 }
 
 void openScope ()
 {
-  Scope * newScope = (Scope *) new(sizeof(Scope));
+  Scope * newScope = (Scope *) new1(sizeof(Scope));
 
   newScope->negOffset = START_NEGATIVE_OFFSET;
   newScope->parent    = currentScope;
@@ -199,7 +199,7 @@ void closeScope ()
   }
 
   currentScope = currentScope->parent;
-  delete(t);
+  delete1(t);
 }
 
 static void insertEntry (SymbolEntry * e)
@@ -224,8 +224,8 @@ static SymbolEntry * newEntry (const char * name)
 
   /* Αρχικοποίηση όλων εκτός: entryType και u */
 
-  e = (SymbolEntry *) new(sizeof(SymbolEntry));
-  e->id = (const char *) new(strlen(name) + 1);
+  e = (SymbolEntry *) new1(sizeof(SymbolEntry));
+  e->id = (const char *) new1(strlen(name) + 1);
 
   strcpy((char *) (e->id), name);
   e->hashValue    = PJW_hash(name) % hashTableSize;
@@ -234,7 +234,7 @@ static SymbolEntry * newEntry (const char * name)
   return e;
 }
 
-SymbolEntry * newVariable (const char * name, Type type)
+SymbolEntry * newVariable (const char * name, PclType type)
 {
   SymbolEntry * e = newEntry(name);
 
@@ -248,7 +248,7 @@ SymbolEntry * newVariable (const char * name, Type type)
   return e;
 }
 
-SymbolEntry * newConstant (const char * name, Type type, ...)
+SymbolEntry * newConstant (const char * name, PclType type, ...)
 {
   SymbolEntry * e;
   va_list ap;
@@ -279,7 +279,7 @@ SymbolEntry * newConstant (const char * name, Type type, ...)
     if (equalType(type->refType, typeChar)) {
       RepString str = va_arg(ap, RepString);
 
-      value.vString = (const char *) new(strlen(str) + 1);
+      value.vString = (const char *) new1(strlen(str) + 1);
       strcpy((char *) (value.vString), str);
       break;
     }
@@ -372,7 +372,7 @@ SymbolEntry * newFunction (const char * name)
   }
 }
 
-SymbolEntry * newParameter (const char * name, Type type,
+SymbolEntry * newParameter (const char * name, PclType type,
                             PassMode mode, SymbolEntry * f)
 {
   SymbolEntry * e;
@@ -446,7 +446,7 @@ void forwardFunction (SymbolEntry * f)
   f->u.eFunction.isForward = true;
 }
 
-void endFunctionHeader (SymbolEntry * f, Type type)
+void endFunctionHeader (SymbolEntry * f, PclType type)
 {
   if (f->entryType != ENTRY_FUNCTION)
     internal("Cannot end parameters in a non-function");
@@ -474,7 +474,7 @@ void endFunctionHeader (SymbolEntry * f, Type type)
   f->u.eFunction.pardef = PARDEF_COMPLETE;
 }
 
-SymbolEntry * newTemporary (Type type)
+SymbolEntry * newTemporary (PclType type)
 {
   char buffer[10];
   SymbolEntry * e;
@@ -503,7 +503,7 @@ void destroyEntry (SymbolEntry * e)
     break;
   case ENTRY_CONSTANT:
     if (e->u.eConstant.type->kind == TYPE_ARRAY)
-      delete((char *) (e->u.eConstant.value.vString));
+      delete1((char *) (e->u.eConstant.value.vString));
     destroyType(e->u.eConstant.type);
     break;
   case ENTRY_FUNCTION:
@@ -512,9 +512,9 @@ void destroyEntry (SymbolEntry * e)
       SymbolEntry * p = args;
 
       destroyType(args->u.eParameter.type);
-      delete((char *) (args->id));
+      delete1((char *) (args->id));
       args = args->u.eParameter.next;
-      delete(p);
+      delete1(p);
     }
     destroyType(e->u.eFunction.resultType);
     break;
@@ -525,8 +525,8 @@ void destroyEntry (SymbolEntry * e)
     destroyType(e->u.eTemporary.type);
     break;
   }
-  delete((char *) (e->id));
-  delete(e);
+  delete1((char *) (e->id));
+  delete1(e);
 }
 
 SymbolEntry * lookupEntry (const char * name, LookupType type, bool err)
@@ -556,9 +556,9 @@ SymbolEntry * lookupEntry (const char * name, LookupType type, bool err)
   return NULL;
 }
 
-Type typeArray (RepInteger size, Type refType)
+PclType typeArray (RepInteger size, PclType refType)
 {
-  Type n = (Type) new(sizeof(struct Type_tag));
+  PclType n = (PclType) new1(sizeof(struct Type_tag));
 
   n->kind     = TYPE_ARRAY;
   n->refType  = refType;
@@ -570,9 +570,9 @@ Type typeArray (RepInteger size, Type refType)
   return n;
 }
 
-Type typeIArray (Type refType)
+PclType typeIArray (PclType refType)
 {
-  Type n = (Type) new(sizeof(struct Type_tag));
+  PclType n = (PclType) new1(sizeof(struct Type_tag));
 
   n->kind     = TYPE_IARRAY;
   n->refType  = refType;
@@ -583,9 +583,9 @@ Type typeIArray (Type refType)
   return n;
 }
 
-Type typePointer (Type refType)
+PclType typePointer (PclType refType)
 {
-  Type n = (Type) new(sizeof(struct Type_tag));
+  PclType n = (PclType) new1(sizeof(struct Type_tag));
 
   n->kind     = TYPE_POINTER;
   n->refType  = refType;
@@ -596,7 +596,7 @@ Type typePointer (Type refType)
   return n;
 }
 
-void destroyType (Type type)
+void destroyType (PclType type)
 {
   switch (type->kind) {
   case TYPE_ARRAY:
@@ -604,13 +604,13 @@ void destroyType (Type type)
   case TYPE_POINTER:
     if (--(type->refCount) == 0) {
       destroyType(type->refType);
-      delete(type);
+      delete1(type);
     }
   default:;
   }
 }
 
-unsigned int sizeOfType (Type type)
+unsigned int sizeOfType (PclType type)
 {
   switch (type->kind) {
   case TYPE_VOID:
@@ -632,7 +632,7 @@ unsigned int sizeOfType (Type type)
   return 0;
 }
 
-bool equalType (Type type1, Type type2)
+bool equalType (PclType type1, PclType type2)
 {
   if (type1->kind != type2->kind)
     return false;
@@ -648,7 +648,7 @@ bool equalType (Type type1, Type type2)
   return true;
 }
 
-void printType (Type type)
+void printType (PclType type)
 {
   if (type == NULL) {
     printf("<undefined>");

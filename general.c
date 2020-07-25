@@ -33,16 +33,16 @@
    ----------- Υλοποίηση των συναρτήσεων διαχείρισης μνήμης ------------
    --------------------------------------------------------------------- */
 
-void * new (size_t size)
+void * new1 (size_t size)
 {
    void * result = malloc(size);
-   
+
    if (result == NULL)
       fatal("\rOut of memory");
    return result;
 }
 
-void delete (void * p)
+void delete1 (void * p)
 {
    if (p != NULL)
       free(p);

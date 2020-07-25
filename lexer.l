@@ -3,7 +3,7 @@
 %{
 #include "ast.h"
 #include "symbol.h"
-#include "parser.h"
+#include "parser.hpp"
 #include "yyfunc.h"
 void ERROR(char * s);
 %}
@@ -59,9 +59,9 @@ W [ \t\r\n]
 
 {D}+\.{D}+([Ee][+-]?{D}+)? {yylval.r = strtold(yytext, NULL); return t_real_const;}
 
-('[^\'\"\n]')|'(\\\\|\\n|\\t|\\r|\\0|\\'|\\\")' {yylval.c = yytext[0]; return t_char_const;}
+('[^\'\"\n]')|'(\\\\|\\n|\\t|\\r|\\0|\\'|\\\")' {yylval.c = make_char(yytext); return t_char_const;}
 
-\"(([^\'\"])|\\\\|\\n|\\t|\\r|\\0|\\'|\\\")*\" {yylval.s = (char*)malloc(strlen(yytext)*sizeof(char)) ;strcpy(yylval.s, yytext); return t_string_const;} 
+\"(([^\'\"])|\\\\|\\n|\\t|\\r|\\0|\\'|\\\")*\" {yylval.s = (char*)malloc(strlen(yytext)*sizeof(char)) ;strcpy(yylval.s, yytext); return t_string_const;}
 
 \(\*(((\*[^)])*)|([^*]*))*\*\) {return 10000;}
 

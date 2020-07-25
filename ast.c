@@ -4,8 +4,21 @@
 #include "ast.h"
 #include "symbol.h"
 
-
-char * table[] =  {"AND", "IARRAY", "ARRAY", "BLOCK", "BOOL", "CHAR", "DISPOSE", "DIV", "BOOL_CONST", "FORWARD", "FUNCTION", "GOTO", "IF", "INT", "MOD", "NEW", "NIL", "NOT", "OR", "PROCEDURE", "PROGRAM", "REAL_CONST", "REAL", "RESULT", "RETURN", "VAR", "WHILE", "ID", "INT_CONST", "STR_CONST", "CHAR_CONST", "NEQ", "GEQ", "LEQ", "LESS", "GREATER", "EQ", "PLUS", "MINUS", "TIMES", "DIVIDE", "DEREF", "REF", "SEQ_EXPR", "SEQ_STMT", "SEQ_ID", "INDEX", "POINTER", "CALL", "ASSIGN", "STMT", "DISPOSE_ARRAY", "VARREF", "SEQ_FORMAL", "SEQ_LOCAL", "DEFINITION", "LOCAL_VAR", "LOCAL_VAR_INSTANCE", "SEQ_LOCAL_VAR", "BODY", "LABEL"};
+char make_char(char* s) {
+	if (strlen(s) == 3) {
+		return s[1];
+	}
+	switch (s[2]) {
+		case 'n': return '\n';
+		case '\\': return '\\';
+		case 't': return '\t';
+		case 'r': return '\r';
+		case '0': return '\0';
+		case '"': return '"';
+		case '\'': return '\'';
+	}
+	return '\0';
+}
 
 ast* make_ast(kind k, char* id, char* str, int boolean, int integer, char character, long double real, int size, ast *left, ast *mid, ast *right) {
   ast * node;
@@ -771,11 +784,11 @@ void define_builtins() {
   closeScope();
 }
 
-int type_check(ast * t, Type ftype) {
+int type_check(ast * t, PclType ftype) {
   SymbolEntry *p, *p1;
   ast *head, *head1;
-  Type tp;
-  int pass_type;
+  PclType tp;
+  PassMode pass_type;
   if (!t) {
     return 1;
   }
@@ -1264,5 +1277,7 @@ int type_check(ast * t, Type ftype) {
 
 int type_checking(ast* t) {
   initSymbolTable(256);
-  return type_check(t, NULL);
+  int ret = type_check(t, NULL);
+  destroySymbolTable();
+  return ret;
 }

@@ -6,6 +6,8 @@ typedef enum {
   AND, IARRAY, ARRAY, BLOCK, BOOL, CHAR, DISPOSE, DIV, BOOL_CONST, FORWARD, FUNCTION, GOTO, IF, INT, MOD, NEW, NIL, NOT, OR, PROCEDURE, PROGRAM, REAL_CONST, REAL, RESULT, RETURN, VAR, WHILE, ID, INT_CONST, STR_CONST, CHAR_CONST, NEQ, GEQ, LEQ, LESS, GREATER, EQ, PLUS, MINUS, TIMES, DIVIDE, DEREF, REF, SEQ_EXPR, SEQ_STMT, SEQ_ID, INDEX, POINTER, CALL, ASSIGN, STMT, DISPOSE_ARRAY, VARREF, SEQ_FORMAL, SEQ_LOCAL, DEFINITION, LOCAL_VAR, LOCAL_VAR_INSTANCE, SEQ_LOCAL_VAR, BODY, LABEL
 } kind;
 
+//char * table[] =  {"AND", "IARRAY", "ARRAY", "BLOCK", "BOOL", "CHAR", "DISPOSE", "DIV", "BOOL_CONST", "FORWARD", "FUNCTION", "GOTO", "IF", "INT", "MOD", "NEW", "NIL", "NOT", "OR", "PROCEDURE", "PROGRAM", "REAL_CONST", "REAL", "RESULT", "RETURN", "VAR", "WHILE", "ID", "INT_CONST", "STR_CONST", "CHAR_CONST", "NEQ", "GEQ", "LEQ", "LESS", "GREATER", "EQ", "PLUS", "MINUS", "TIMES", "DIVIDE", "DEREF", "REF", "SEQ_EXPR", "SEQ_STMT", "SEQ_ID", "INDEX", "POINTER", "CALL", "ASSIGN", "STMT", //"DISPOSE_ARRAY", "VARREF", "SEQ_FORMAL", "SEQ_LOCAL", "DEFINITION", "LOCAL_VAR", "LOCAL_VAR_INSTANCE", "SEQ_LOCAL_VAR", "BODY", "LABEL"};
+
 typedef struct node {
   kind k;
   char* id;
@@ -15,12 +17,13 @@ typedef struct node {
   char character;
   long double real;
   int size;
-  Type type;
+  PclType type;
   SymbolEntry *sentry;
   bool full;
   struct node *left, *mid, *right;
 } ast;
 
+char make_char(char* s);
 ast* make_ast(kind k, char* id, char* str, int boolean, int integer, char character, long double real, int size, ast *left, ast *mid, ast *right);
 ast* ast_op(ast *l, kind op, ast *r);
 ast* ast_id(char* id);
@@ -53,4 +56,6 @@ ast* ast_local_var_instance(ast * l, ast * r);
 ast* ast_seq_local_var(ast * l, ast * r);
 ast* ast_body(ast * l, ast * r);
 void print_ast(ast * t);
+int type_check(ast * t, PclType ftype);
+int type_checking(ast * t);
 #endif

@@ -1,5 +1,4 @@
 program solve;
-	var x : integer;
 	begin
-		writeString("Please, give the number of rings : ");
+		writeReal(3.5);
 	end.

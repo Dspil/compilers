@@ -4,9 +4,9 @@
 #include <stdlib.h>
 #include "ast.h"
 #include "symbol.h"
+#include "code_gen.hpp"
 
 ast * t;
-
 %}
 
 
@@ -273,8 +273,9 @@ int main() {
   //printf("etoimo\n");
   //printf("%lu\n", (long)t);
   if (result == 0) {
-    print_ast(t);
-    type_checking(t);
+    //print_ast(t);
+    if(type_checking(t)) return 1;
+	generate_code(t);
   }
   return result;
 }
