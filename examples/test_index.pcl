@@ -1,0 +1,25 @@
+program test_index;
+	var x : array [5] of integer;
+		y : integer;
+		z : ^integer;
+		w : array [5] of ^integer;
+	begin
+		x[0] := 2;
+		x[3] := 3;
+		writeInteger(x[0] + x[3]);
+		writeChar('\n');
+
+		y := 1;
+		writeInteger(y);
+		writeChar('\n');
+
+		z := @y;
+		z^ := 3;
+		writeInteger(y);
+		writeChar('\n');
+
+		w[3] := z;
+		w[3]^ := 10;
+		writeInteger(y);
+		writeChar('\n');
+	end.

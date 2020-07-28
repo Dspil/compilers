@@ -63,7 +63,7 @@ W [ \t\r\n]
 
 \"(([^\'\"])|\\\\|\\n|\\t|\\r|\\0|\\'|\\\")*\" {yylval.s = (char*)malloc(strlen(yytext)*sizeof(char)) ;strcpy(yylval.s, yytext); return t_string_const;}
 
-\(\*(((\*[^)])*)|([^*]*))*\*\) {return 10000;}
+\(\*(((\*[^)])*)|([^*]*))*\*\) {/* nothing */}
 
 {W}+ {/* nothing */}
 
@@ -78,12 +78,11 @@ void ERROR(char * s) {
 void yyerror(const char *msg) {
     printf("%s\n", msg);
 }
-/*
-int main () {
+
+/* int main () {
   int token;
   do {
     token = yylex();
     printf("token=%d, lexeme=\"%s\"\n", token, yytext);
   } while (token != 0);
-}
-*/
+} */

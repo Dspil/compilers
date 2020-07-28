@@ -1573,7 +1573,7 @@ yyreduce:
 
   case 27:
 #line 152 "parser.y" /* yacc.c:1646  */
-    {(yyval.a) = ast_type(IARRAY, -1, (yyvsp[0].a));}
+    {(yyval.a) = ast_type(IARRAY, 0, (yyvsp[0].a));}
 #line 1578 "parser.cpp" /* yacc.c:1646  */
     break;
 
@@ -1723,7 +1723,7 @@ yyreduce:
 
   case 52:
 #line 201 "parser.y" /* yacc.c:1646  */
-    {(yyval.a) = ast_op((yyvsp[-1].a), REF, NULL);}
+    {(yyval.a) = ast_op((yyvsp[-1].a), DEREF, NULL);}
 #line 1728 "parser.cpp" /* yacc.c:1646  */
     break;
 
@@ -1801,7 +1801,7 @@ yyreduce:
 
   case 65:
 #line 218 "parser.y" /* yacc.c:1646  */
-    {(yyval.a) = ast_op((yyvsp[0].a), DEREF, NULL);}
+    {(yyval.a) = ast_op((yyvsp[0].a), REF, NULL);}
 #line 1806 "parser.cpp" /* yacc.c:1646  */
     break;
 

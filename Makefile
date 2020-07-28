@@ -44,7 +44,7 @@ code_gen.o: code_gen.cpp code_gen.hpp ast.h symbol.h
 	$(CXX) $(CXXFLAGS) -c code_gen.cpp -o code_gen.o
 
 clean:
-	$(RM) *.o *~* parser.hpp *#* parser.output parser.cpp lexer.cpp parser.c lexer.c parser.h
+	$(RM) *.o *~* parser.hpp *#* parser.output parser.cpp lexer.cpp parser.c lexer.c parser.h a.ll a.s a.out
 
 distclean: clean
 	$(RM) pcl

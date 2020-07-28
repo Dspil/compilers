@@ -1,0 +1,24 @@
+program testop;
+	begin
+		(*writeChar('\n');
+		writeInteger(1 - 2);*)
+		writeChar('\n');
+		writeInteger(3 + 2 - 5);
+		writeChar('\n');
+		writeInteger(3 - 2 + 5);
+		writeChar('\n');
+		writeInteger(3 * 2);
+		writeChar('\n');
+		writeInteger(3 * 2 + 5);
+		writeChar('\n');
+		writeInteger(3 * (2 + 5));
+		writeChar('\n');
+		writeInteger(15 div 2);
+		writeChar('\n');
+		writeInteger(15 mod 2 + 1);
+		writeChar('\n');
+		writeInteger(15 mod (2 + 1));
+		writeChar('\n');
+		writeReal(14 / 3);
+		writeChar('\n');
+	end.

@@ -1,0 +1,35 @@
+program arrays;
+	var x : array [5] of array [5] of integer;
+	var i,j,k : integer;
+	begin
+		i := 0;
+		while i < 5 do
+			begin
+				j := 0;
+				while j < 5 do
+				 	begin
+						x[i][j] := 5 * i + j;
+						j := j + 1;
+					end;
+				i := i + 1;
+			end;
+
+
+		i := 0;
+		while i < 5 do
+			begin
+				j := 0;
+				while j < 5 do
+					begin
+						writeInteger(x[i][j]);
+						if j < 4 then
+							begin
+								writeChar(',');
+								writeChar(' ');
+							end
+						else writeChar('\n');
+						j := j + 1;
+					end;
+				i := i + 1;
+			end
+	end.

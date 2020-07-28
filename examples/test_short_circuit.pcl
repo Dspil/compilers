@@ -1,0 +1,8 @@
+program short;
+	begin
+		if (true or ((1/0) > 5)) then
+			begin
+				writeChar('i');
+				writeChar('\n');
+			end
+	end.

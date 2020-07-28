@@ -1055,7 +1055,7 @@ case 43:
 /* rule 43 can match eol */
 YY_RULE_SETUP
 #line 66 "lexer.l"
-{return 10000;}
+{/* nothing */}
 	YY_BREAK
 case 44:
 /* rule 44 can match eol */
@@ -2088,13 +2088,12 @@ void ERROR(char * s) {
 void yyerror(const char *msg) {
     printf("%s\n", msg);
 }
-/*
-int main () {
+
+/* int main () {
   int token;
   do {
     token = yylex();
     printf("token=%d, lexeme=\"%s\"\n", token, yytext);
   } while (token != 0);
-}
-*/
+} */
 

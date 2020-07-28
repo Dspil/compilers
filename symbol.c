@@ -244,6 +244,7 @@ SymbolEntry * newVariable (const char * name, PclType type)
     type->refCount++;
     currentScope->negOffset -= sizeOfType(type);
     e->u.eVariable.offset = currentScope->negOffset;
+	e->u.eVariable.block = NULL;
   }
   return e;
 }
@@ -614,9 +615,9 @@ unsigned int sizeOfType (PclType type)
 {
   switch (type->kind) {
   case TYPE_VOID:
-  case TYPE_LABEL:
     internal("Type void has no size");
     break;
+  case TYPE_LABEL:
   case TYPE_INTEGER:
   case TYPE_IARRAY:
   case TYPE_POINTER:

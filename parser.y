@@ -149,7 +149,7 @@ type:
 | "real" {$$ = ast_type(REAL, -1, NULL);}
 | "boolean" {$$ = ast_type(BOOL, -1, NULL);}
 | "char" {$$ = ast_type(CHAR, -1, NULL);}
-| "array" "of" type {$$ = ast_type(IARRAY, -1, $3);}
+| "array" "of" type {$$ = ast_type(IARRAY, 0, $3);}
 | "array" '[' t_int_const ']' "of" type {$$ = ast_type(ARRAY, $3, $6);}
 | '^' type {$$ = ast_type(POINTER, -1, $2);}
 ;
@@ -198,7 +198,7 @@ lvalue {$$ = $1;}
 
 lvalue:
 lvalue '[' expr ']' {$$ = ast_index($1, $3);}
-| lvalue '^' {$$ = ast_op($1, REF, NULL);}
+| lvalue '^' {$$ = ast_op($1, DEREF, NULL);}
 |  t_string_const {$$ = ast_const(STR_CONST, 0, 0, '\0', 0.0, $1);}
 | '(' lvalue ')' {$$ = $2;}
 | t_id {$$ = ast_id($1);}
@@ -215,7 +215,7 @@ t_int_const {$$ = ast_const(INT_CONST, 0, $1, '\0', 0.0, NULL);}
 | '(' rvalue ')' {$$ = $2;}
 | "nil" {$$ = ast_const(NIL, 0, 0, '\0', 0.0, NULL);}
 | call {$$ = $1;}
-| '@' lvalue {$$ = ast_op($2, DEREF, NULL);}
+| '@' lvalue {$$ = ast_op($2, REF, NULL);}
 | unop expr %prec unary {$$ = ast_op($2, $1, NULL);}
 | expr '+' expr {$$ = ast_op($1, PLUS, $3);}
 | expr '-' expr {$$ = ast_op($1, MINUS, $3);}

@@ -26,6 +26,7 @@ static std::unique_ptr<Module> TheModule;
 static std::unique_ptr<legacy::FunctionPassManager> TheFPM;
 
 // Useful LLVM types.
+static Type * i1 = IntegerType::get(TheContext, 1);
 static Type * i8 = IntegerType::get(TheContext, 8);
 static Type * i32 = IntegerType::get(TheContext, 32);
 static Type * f64 = Type::getDoubleTy(TheContext);
@@ -33,7 +34,7 @@ static Type * proc = Type::getVoidTy(TheContext);
 
 // Useful LLVM helper functions.
 inline ConstantInt* c_bool(bool b) {
-  return ConstantInt::get(TheContext, APInt(8, b, true));
+  return ConstantInt::get(TheContext, APInt(1, b, true));
 }
 inline ConstantInt* c_char(char c) {
   return ConstantInt::get(TheContext, APInt(8, c, true));
@@ -43,6 +44,33 @@ inline ConstantInt* c_int(int n) {
 }
 inline ConstantFP* c_real(double n) {
   return ConstantFP::get(TheContext, APFloat(n));
+}
+
+Type* find_llvm_type(PclType tp) {
+	switch(tp->kind) {
+		case TYPE_INTEGER:{
+			return i32;
+		}
+		case TYPE_CHAR:{
+			return i8;
+		}
+		case TYPE_BOOLEAN:{
+			return i1;
+		}
+		case TYPE_REAL:{
+			return f64;
+		}
+		case TYPE_VOID:{
+			return proc;
+		}
+		case TYPE_ARRAY:
+		case TYPE_IARRAY:{
+			return ArrayType::get(find_llvm_type(tp->refType), tp->size);
+		}
+		case TYPE_POINTER:{
+			return find_llvm_type(tp->refType)->getPointerTo();
+		}
+	}
 }
 
 void generate_builtins() {
@@ -63,7 +91,7 @@ void generate_builtins() {
 	openScope();
 	newParameter("b", typeBoolean, PASS_BY_VALUE, p);
 	endFunctionHeader(p, typeVoid);
-	tp = FunctionType::get(proc, std::vector<Type *>{i8}, false);
+	tp = FunctionType::get(proc, std::vector<Type *>{i1}, false);
 	f = Function::Create(tp, Function::ExternalLinkage, "writeBoolean", TheModule.get());
 	p->u.eFunction.llvmFunc = f;
 	closeScope();
@@ -189,7 +217,7 @@ void generate_builtins() {
 	newParameter("r", typeReal, PASS_BY_VALUE, p);
 	endFunctionHeader(p, typeInteger);
 	tp = FunctionType::get(i32, std::vector<Type *>{f64}, false);
-	f = Function::Create(tp, Function::ExternalLinkage, "trunc", TheModule.get());
+	f = Function::Create(tp, Function::ExternalLinkage, "trunc2", TheModule.get());
 	p->u.eFunction.llvmFunc = f;
 	closeScope();
 
@@ -198,7 +226,7 @@ void generate_builtins() {
 	newParameter("r", typeReal, PASS_BY_VALUE, p);
 	endFunctionHeader(p, typeInteger);
 	tp = FunctionType::get(i32, std::vector<Type *>{f64}, false);
-	f = Function::Create(tp, Function::ExternalLinkage, "round", TheModule.get());
+	f = Function::Create(tp, Function::ExternalLinkage, "round2", TheModule.get());
 	p->u.eFunction.llvmFunc = f;
 	closeScope();
 
@@ -231,7 +259,7 @@ void generate_builtins() {
 	p = newFunction("readBoolean");
 	openScope();
 	endFunctionHeader(p, typeBoolean);
-	tp = FunctionType::get(i8, std::vector<Type *>{}, false);
+	tp = FunctionType::get(i1, std::vector<Type *>{}, false);
 	f = Function::Create(tp, Function::ExternalLinkage, "readBoolean", TheModule.get());
 	p->u.eFunction.llvmFunc = f;
 	closeScope();
@@ -263,85 +291,170 @@ void generate_builtins() {
 	closeScope();
 }
 
-Value* code_gen(ast * t, PclType ftype) {
+Value* lvalue_pointer(ast * t, Function* cur_func) {
+	SymbolEntry * p;
+	Value *l, *r;
+	switch (t->k){
+		case ID: {
+			p = lookupEntry(t->id, LOOKUP_ALL_SCOPES, false);
+			return p->u.eVariable.alloca_inst;
+		}
+		case RESULT: {
+			p = lookupEntry("result", LOOKUP_ALL_SCOPES, false);
+			return p->u.eVariable.alloca_inst;
+		}
+		case INDEX: {
+			if(t->left->k)
+			l = lvalue_pointer(t->left, cur_func);
+			r = code_gen(t->right, cur_func);
+			return Builder.CreateGEP(l, std::vector<Value *>{c_int(0), r});
+		}
+		case DEREF: {
+			l = code_gen(t->left, cur_func);
+			return l;
+		}
+		default: {
+			return NULL;
+		}
+	}
+	/* error */
+	return NULL;
+}
+
+Value* code_gen(ast * t, Function* cur_func) {
 	SymbolEntry *p, *p1;
     ast *head, *head1;
     PclType tp;
+	Type* llvm_tp;
     PassMode pass_type;
 	Function * f;
 	FunctionType * f_tp;
+	Value *l, *m, *r;
+	BasicBlock *lBB, *mBB, *rBB;
 
+	//printf("%d\n", t->k);
     if (!t) {
       return NULL;
     }
     switch (t->k) {
 
-    case AND:
-    case OR:
-      break;
+    case AND: {
+		l = code_gen(t->left, cur_func);
+		r = code_gen(t->right, cur_func);
+		return Builder.CreateAnd(l, r);
+	}
 
-    case IARRAY:
-      break;
-
-    case ARRAY:
-      break;
+    case OR: {
+		l = code_gen(t->left, cur_func);
+		r = code_gen(t->right, cur_func);
+		return Builder.CreateOr(l, r);
+	}
 
     case BLOCK:{
 		//printf("in block\n");
-		code_gen(t->left, ftype);
+		code_gen(t->left, cur_func);
+		//printf("out block\n");
 		return NULL;
 	}
 
     case BODY:{
 		//printf("in body\n");
-		if(t->left) code_gen(t->left, ftype);
-		code_gen(t->right, ftype);
+		if(t->left) code_gen(t->left, cur_func);
+		//printf("ran t->left\n");
+		code_gen(t->right, cur_func);
+		//printf("out body\n");
 		return NULL;
 	}
 
-    case BOOL:
-		break;
-    case BOOL_CONST:
-	  	return c_bool(t->boolean);
-
-    case CHAR:
-		break;
-    case CHAR_CONST:{
-		//printf("char: %c\n", t->character);
-		return c_char(t->character);
+    case BOOL_CONST: {
+		return c_bool(t->boolean);
 	}
 
-    case DISPOSE:
-      break;
+    case CHAR_CONST:{
+		//printf("char: %c\n", t->character);
+		l = c_char(t->character);
+		return l;
+	}
 
-    case DIV:
-    case MOD:
-      break;
+    case DIV:{
+		l = code_gen(t->left, cur_func);
+		r = code_gen(t->right, cur_func);
+		return Builder.CreateSDiv(l, r);
+	}
 
-    case FORWARD:
-      break;
+    case MOD:{
+		l = code_gen(t->left, cur_func);
+		r = code_gen(t->right, cur_func);
+		return Builder.CreateSRem(l, r);
+	}
 
-    case GOTO:
-      break;
+    case FORWARD:{
+	}
 
-    case IF:
-      break;
+    case GOTO:{
+		//printf("in goto\n");
+		p = lookupEntry(t->str, LOOKUP_CURRENT_SCOPE, false);
+		if(p->u.eVariable.block) {
+			//printf("lookedup in goto\n");
+			Builder.CreateBr(p->u.eVariable.block);
+			//printf("made break\n");
+			return NULL;
+		}
+		else {
+			//printf("edo\n");
+			p->u.eVariable.goto_stack.push_back(&cur_func->getBasicBlockList().back());
+			lBB = BasicBlock::Create(TheContext, "help", cur_func);
+			Builder.SetInsertPoint(lBB);
+			return NULL;
+		}
+	}
 
-    case INT:
-		break;
+    case IF:{
+		l = code_gen(t->left, cur_func);
+		lBB = BasicBlock::Create(TheContext, "then", cur_func);
+		mBB = BasicBlock::Create(TheContext, "else");
+		rBB = BasicBlock::Create(TheContext, "merge");
+		//printf("made basic blocks\n");
+		Builder.CreateCondBr(l, lBB, mBB);
+		//printf("made first branch\n");
+
+		Builder.SetInsertPoint(lBB);
+		//printf("made insert point\n");
+		code_gen(t->mid, cur_func);
+		//printf("code gen mid\n");
+		Builder.CreateBr(rBB);
+		//printf("made break\n");
+
+		cur_func->getBasicBlockList().push_back(mBB);
+		//printf("first push back\n");
+		Builder.SetInsertPoint(mBB);
+		//printf("made 2 insert point\n");
+		if(t->right){
+			code_gen(t->right, cur_func);
+			//printf("code gen else\n");
+		}
+		Builder.CreateBr(rBB);
+		//printf("second branch\n");
+		cur_func->getBasicBlockList().push_back(rBB);
+		Builder.SetInsertPoint(rBB);
+		return NULL;
+	}
+
     case INT_CONST:{
-		//printf("in int_const\n");
+		//printf("in int_const %d\n", t->integer);
 		return c_int(t->integer);
 	}
 
     case NEW:
-      break;
+    	break;
 
-    case NIL:
-      break;
+	case DISPOSE:
+		break;
 
-    case NOT:
-      break;
+    case NOT:{
+		l = code_gen(t->left, cur_func);
+		return Builder.CreateNot(l);
+	}
 
     case PROCEDURE:
       break;
@@ -357,9 +470,13 @@ Value* code_gen(ast * t, PclType ftype) {
 	 	f = llvm::Function::Create(f_tp, llvm::Function::ExternalLinkage, "main", TheModule.get());
 		BasicBlock *BB = BasicBlock::Create(TheContext, "entry", f);
 		Builder.SetInsertPoint(BB);
-		code_gen(t->left, ftype);
+		//printf("before run tleft\n");
+		code_gen(t->left, f);
+		//printf("ran tleft\n");
 		Builder.CreateRet(c_int(0));
+		//printf("out createret\n");
 		closeScope();
+		//printf("closed scope\n");
 		TheFPM = std::make_unique<legacy::FunctionPassManager>(TheModule.get());
 	    TheFPM->add(createPromoteMemoryToRegisterPass());
 	    TheFPM->add(createInstructionCombiningPass());
@@ -367,12 +484,9 @@ Value* code_gen(ast * t, PclType ftype) {
 	    TheFPM->add(createGVNPass());
 	    TheFPM->add(createCFGSimplificationPass());
 	    TheFPM->doInitialization();
-		TheFPM->run(*f);
+		//TheFPM->run(*f);
+		//printf("ran\n");
 		return NULL;
-	}
-
-    case REAL:{
-		break;
 	}
     case REAL_CONST:{
 
@@ -382,56 +496,248 @@ Value* code_gen(ast * t, PclType ftype) {
     case RESULT:
       break;
 
-    case VAR:
-      break;
+    case VAR:{
 
-    case WHILE:
-      break;
+	}
 
-    case STR_CONST:
-      break;
+    case WHILE:{
+		l = code_gen(t->left, cur_func);
+		lBB = BasicBlock::Create(TheContext, "loop", cur_func);
+		rBB = BasicBlock::Create(TheContext, "after");
 
-    case NEQ:
-    case EQ:
-      break;
+		Builder.CreateCondBr(l, lBB, rBB);
 
-    case GEQ:
-    case LEQ:
-    case LESS:
-    case GREATER:
-      break;
+		Builder.SetInsertPoint(lBB);
+		code_gen(t->right, cur_func);
 
-    case PLUS:
-    case MINUS:
-    case TIMES:
-      break;
+		l = code_gen(t->left, cur_func);
+		Builder.CreateCondBr(l, lBB, rBB);
 
-    case DIVIDE:
-      break;
+		cur_func->getBasicBlockList().push_back(rBB);
+		Builder.SetInsertPoint(rBB);
+		return NULL;
+	}
 
-    case DEREF:
-      break;
-
-    case REF:
-      break;
-
-    case SEQ_EXPR:
+    case STR_CONST: {
 		break;
+	}
+
+    case NEQ: {
+		l = code_gen(t->left, cur_func);
+		r = code_gen(t->right, cur_func);
+		if(t->left->type->kind == TYPE_INTEGER && t->right->type->kind == TYPE_REAL) {
+			l = Builder.CreateCast(Instruction::SIToFP, l, f64);
+			return Builder.CreateFCmpONE(l, r);
+		}
+		else if(t->right->type->kind == TYPE_INTEGER && t->left->type->kind == TYPE_REAL) {
+			r = Builder.CreateCast(Instruction::SIToFP, r, f64);
+			return Builder.CreateFCmpONE(l, r);
+		}
+		else if(t->right->type->kind == TYPE_REAL && t->left->type->kind == TYPE_REAL) {
+			return Builder.CreateFCmpONE(l, r);
+		}
+		return Builder.CreateICmpNE(l, r);
+	}
+
+    case EQ:{
+		l = code_gen(t->left, cur_func);
+		r = code_gen(t->right, cur_func);
+		if(t->left->type->kind == TYPE_INTEGER && t->right->type->kind == TYPE_REAL) {
+			l = Builder.CreateCast(Instruction::SIToFP, l, f64);
+			return Builder.CreateFCmpOEQ(l, r);
+		}
+		else if(t->right->type->kind == TYPE_INTEGER && t->left->type->kind == TYPE_REAL) {
+			r = Builder.CreateCast(Instruction::SIToFP, r, f64);
+			return Builder.CreateFCmpOEQ(l, r);
+		}
+		else if(t->right->type->kind == TYPE_REAL && t->left->type->kind == TYPE_REAL) {
+			return Builder.CreateFCmpOEQ(l, r);
+		}
+		return Builder.CreateICmpEQ(l, r);
+	}
+
+    case GEQ:{
+		l = code_gen(t->left, cur_func);
+		r = code_gen(t->right, cur_func);
+		if(t->left->type->kind == TYPE_INTEGER && t->right->type->kind == TYPE_REAL) {
+			l = Builder.CreateCast(Instruction::SIToFP, l, f64);
+			return Builder.CreateFCmpOGE(l, r);
+		}
+		else if(t->right->type->kind == TYPE_INTEGER && t->left->type->kind == TYPE_REAL) {
+			r = Builder.CreateCast(Instruction::SIToFP, r, f64);
+			return Builder.CreateFCmpOGE(l, r);
+		}
+		else if(t->right->type->kind == TYPE_REAL && t->left->type->kind == TYPE_REAL) {
+			return Builder.CreateFCmpOGE(l, r);
+		}
+		return Builder.CreateICmpSGE(l, r);
+	}
+
+    case LEQ:{
+		l = code_gen(t->left, cur_func);
+		r = code_gen(t->right, cur_func);
+		if(t->left->type->kind == TYPE_INTEGER && t->right->type->kind == TYPE_REAL) {
+			l = Builder.CreateCast(Instruction::SIToFP, l, f64);
+			return Builder.CreateFCmpOLE(l, r);
+		}
+		else if(t->right->type->kind == TYPE_INTEGER && t->left->type->kind == TYPE_REAL) {
+			r = Builder.CreateCast(Instruction::SIToFP, r, f64);
+			return Builder.CreateFCmpOLE(l, r);
+		}
+		else if(t->right->type->kind == TYPE_REAL && t->left->type->kind == TYPE_REAL) {
+			return Builder.CreateFCmpOLE(l, r);
+		}
+		return Builder.CreateICmpSLE(l, r);
+	}
+
+    case LESS:{
+		l = code_gen(t->left, cur_func);
+		r = code_gen(t->right, cur_func);
+		if(t->left->type->kind == TYPE_INTEGER && t->right->type->kind == TYPE_REAL) {
+			l = Builder.CreateCast(Instruction::SIToFP, l, f64);
+			return Builder.CreateFCmpOLT(l, r);
+		}
+		else if(t->right->type->kind == TYPE_INTEGER && t->left->type->kind == TYPE_REAL) {
+			r = Builder.CreateCast(Instruction::SIToFP, r, f64);
+			return Builder.CreateFCmpOLT(l, r);
+		}
+		else if(t->right->type->kind == TYPE_REAL && t->left->type->kind == TYPE_REAL) {
+			return Builder.CreateFCmpOLT(l, r);
+		}
+		return Builder.CreateICmpSLT(l, r);
+	}
+
+    case GREATER:{
+		l = code_gen(t->left, cur_func);
+		r = code_gen(t->right, cur_func);
+		if(t->left->type->kind == TYPE_INTEGER && t->right->type->kind == TYPE_REAL) {
+			l = Builder.CreateCast(Instruction::SIToFP, l, f64);
+			return Builder.CreateFCmpOGT(l, r);
+		}
+		else if(t->right->type->kind == TYPE_INTEGER && t->left->type->kind == TYPE_REAL) {
+			r = Builder.CreateCast(Instruction::SIToFP, r, f64);
+			return Builder.CreateFCmpOGT(l, r);
+		}
+		else if(t->right->type->kind == TYPE_REAL && t->left->type->kind == TYPE_REAL) {
+			return Builder.CreateFCmpOGT(l, r);
+		}
+		return Builder.CreateICmpSGT(l, r);
+	}
+
+    case PLUS:{
+		l = code_gen(t->left, cur_func);
+		if (!t->right)
+			return l;
+		r = code_gen(t->right, cur_func);
+		if(t->left->type->kind == TYPE_INTEGER && t->right->type->kind == TYPE_REAL) {
+			l = Builder.CreateCast(Instruction::SIToFP, l, f64);
+			return Builder.CreateFAdd(l, r);
+		}
+		else if(t->right->type->kind == TYPE_INTEGER && t->left->type->kind == TYPE_REAL) {
+			r = Builder.CreateCast(Instruction::SIToFP, r, f64);
+			return Builder.CreateFAdd(l, r);
+		}
+		else if(t->right->type->kind == TYPE_REAL && t->left->type->kind == TYPE_REAL) {
+			return Builder.CreateFAdd(l, r);
+		}
+		return Builder.CreateAdd(l, r);
+	}
+
+    case MINUS:{
+		l = code_gen(t->left, cur_func);
+		if (!t->right)
+			if (t->left->type->kind == TYPE_REAL)
+				return Builder.CreateFSub(c_real(0.0), l);
+			else
+				return Builder.CreateSub(c_int(0), l);
+		r = code_gen(t->right, cur_func);
+		if(t->left->type->kind == TYPE_INTEGER && t->right->type->kind == TYPE_REAL) {
+			l = Builder.CreateCast(Instruction::SIToFP, l, f64);
+			return Builder.CreateFSub(l, r);
+		}
+		else if(t->right->type->kind == TYPE_INTEGER && t->left->type->kind == TYPE_REAL) {
+			r = Builder.CreateCast(Instruction::SIToFP, r, f64);
+			return Builder.CreateFSub(l, r);
+		}
+		else if(t->right->type->kind == TYPE_REAL && t->left->type->kind == TYPE_REAL) {
+			return Builder.CreateFSub(l, r);
+		}
+		return Builder.CreateSub(l, r);
+	}
+
+    case TIMES: {
+		l = code_gen(t->left, cur_func);
+		r = code_gen(t->right, cur_func);
+		if(t->left->type->kind == TYPE_INTEGER && t->right->type->kind == TYPE_REAL) {
+			l = Builder.CreateCast(Instruction::SIToFP, l, f64);
+			return Builder.CreateFMul(l, r);
+		}
+		else if(t->right->type->kind == TYPE_INTEGER && t->left->type->kind == TYPE_REAL) {
+			r = Builder.CreateCast(Instruction::SIToFP, r, f64);
+			return Builder.CreateFMul(l, r);
+		}
+		else if(t->right->type->kind == TYPE_REAL && t->left->type->kind == TYPE_REAL) {
+			return Builder.CreateFMul(l, r);
+		}
+		return Builder.CreateMul(l, r);
+	}
+
+    case DIVIDE:{
+		l = code_gen(t->left, cur_func);
+		r = code_gen(t->right, cur_func);
+		if(t->left->type->kind == TYPE_INTEGER) {
+			l = Builder.CreateCast(Instruction::SIToFP, l, f64);
+		}
+		if(t->right->type->kind == TYPE_INTEGER) {
+			r = Builder.CreateCast(Instruction::SIToFP, r, f64);
+		}
+		return Builder.CreateFDiv(l, r);
+	}
+
+    case DEREF:{
+		return Builder.CreateLoad(code_gen(t->left, cur_func));
+	}
+
+    case REF:{
+		return lvalue_pointer(t->left, cur_func);
+	}
 
     case SEQ_STMT:{
 		//printf("in seq_stmt\n");
 		for(head = t; head; head = head->right){
-			code_gen(head->left, ftype);
+			if(!head->left) break;
+			code_gen(head->left, cur_func);
 			//printf("done with stmt\n");
 		}
+		//printf("done with everything\n");
 		return NULL;
 	}
 
-    case STMT:
-      break;
+    case STMT:{
+		//printf("in stmt\n");
+		lBB = BasicBlock::Create(TheContext, "labelb", cur_func);
+		Builder.CreateBr(lBB);
+		//printf("create block\n");
+		p = lookupEntry(t->id, LOOKUP_CURRENT_SCOPE, false);
+		//printf("lookedup\n");
+		p->u.eVariable.block = lBB;
+		std::vector<BasicBlock*> v_blocks = p->u.eVariable.goto_stack;
+		while(!v_blocks.empty()){
+			Builder.SetInsertPoint(v_blocks.back());
+			Builder.CreateBr(lBB);
+			v_blocks.pop_back();
+		}
+		//printf("found block\n");
+		Builder.SetInsertPoint(lBB);
+		//printf("went there\n");
+		code_gen(t->left, cur_func);
+		//printf("generate rest\n");
+		return NULL;
+	}
 
-    case INDEX:
-      break;
+    case INDEX:{
+		return Builder.CreateLoad(lvalue_pointer(t, cur_func));
+	}
 
     case CALL:{
 		//printf("in call\n");
@@ -439,7 +745,7 @@ Value* code_gen(ast * t, PclType ftype) {
 		f = p->u.eFunction.llvmFunc;
 		std::vector<Value *> params;
   		for(head = t->left; head; head = head->right) {
-			params.push_back(code_gen(head->left, ftype));
+			params.push_back(code_gen(head->left, cur_func));
 			//printf("pushed back param\n");
 		}
 		auto ret = Builder.CreateCall(f, params);
@@ -447,17 +753,37 @@ Value* code_gen(ast * t, PclType ftype) {
   		return ret;
 	}
 
-    case SEQ_LOCAL:
-      break;
+    case SEQ_LOCAL:{
+		//printf("in seq local\n");
+		for(head = t; head; head = head->right)
+	    	code_gen(head->left, cur_func);
+		//printf("out seq local\n");
+		return NULL;
+	}
 
-    case SEQ_LOCAL_VAR:
-      break;
+    case SEQ_LOCAL_VAR:{
+		for(head = t; head; head = head->right)
+			code_gen(head->left, cur_func);
+		return NULL;
+	}
 
-    case LOCAL_VAR_INSTANCE:
-      break;
+    case LOCAL_VAR_INSTANCE:{
+		//printf("in lvi\n");
+		tp = t->right->type;
+	    llvm_tp = find_llvm_type(tp);
+		//printf("found type\n");
+	    for(head = t->left; head; head = head->right){
+			p = newVariable(head->id, tp);
+			//printf("made variable\n");
+			p->u.eVariable.alloca_inst = Builder.CreateAlloca(llvm_tp, 0, head->id);
+			//printf("alloca\n");
+	    }
+	}
 
-    case LOCAL_VAR:
-      break;
+    case LOCAL_VAR:{
+		code_gen(t->left, cur_func);
+		return NULL;
+	}
 
     case DEFINITION:
       break;
@@ -465,30 +791,76 @@ Value* code_gen(ast * t, PclType ftype) {
     case SEQ_FORMAL:
       break;
 
-    case VARREF:
-      break;
+    case VARREF:{
+		break;
+	}
 
     case DISPOSE_ARRAY:
       break;
 
-    case ID:
-      break;
+    case ID:{
+		/*if(t->type->kind == TYPE_ARRAY || t->type->kind == TYPE_IARRAY) {
+			return NULL; //todo
+		}
+		else {*/
+			p = lookupEntry(t->id, LOOKUP_ALL_SCOPES, false);
+			if(p) //printf("ola popa\n");
+			return Builder.CreateLoad(p->u.eVariable.alloca_inst, t->id);
+		//}
+	}
 
-    case LABEL:
-      break;
+    case LABEL:{
+		//printf("inlabel\n");
+		head = t->left;
+	    while (head) {
+	      newVariable(head->id, typeLabel);
+	      head = head->right;
+	    }
+		//printf("outlabel\n");
+	    return NULL;
+	}
 
-    case ASSIGN:
-      break;
+    case ASSIGN:{
+		//printf("in assign\n");
+		r = code_gen(t->right, cur_func);
+		l = lvalue_pointer(t->left, cur_func);
+		if (t->left->type->kind == TYPE_REAL && t->right->type->kind == TYPE_INTEGER) r = Builder.CreateCast(Instruction::SIToFP, r, f64);
+		Builder.CreateStore(r, l);
+		//printf("calculated expression\n");
+		/*switch(t->left->k) {
+			case ID: {
+				p = lookupEntry(t->left->id, LOOKUP_ALL_SCOPES, false);
+				if(t->left->type->kind == TYPE_REAL && t->right->type->kind == TYPE_INTEGER) r = Builder.CreateCast(Instruction::SIToFP, r, f64);
+				Builder.CreateStore(r, p->u.eVariable.alloca_inst);
+				//printf("made store\n");
+			}
 
-    case POINTER:
-      break;
+			case INDEX:{
+				l = code_gen(t->left, cur_func);
+			}
+		}*/
+		return NULL;
+	}
 
     case SEQ_ID:
       break;
 
     case RETURN:
       break;
-    }
+
+	case IARRAY:
+    case ARRAY:
+	case INT:
+	case CHAR:
+	case BOOL:
+	case POINTER:
+	case REAL:
+	case SEQ_EXPR:
+	case NIL:{
+		//printf("oups\n");
+		break;
+	}
+	}
     return NULL;
 }
 

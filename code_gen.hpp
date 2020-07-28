@@ -8,8 +8,10 @@
 
 using namespace llvm;
 
+Type* find_llvm_type(PclType tp);
 void generate_builtins();
-Value* code_gen(ast *t, PclType ftype);
+Value* code_gen(ast *t, Function* cur_func);
+Value* lvalue_pointer(ast * t, Function* cur_func);
 void generate_code(ast *t);
 
 #endif

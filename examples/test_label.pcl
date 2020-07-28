@@ -1,0 +1,19 @@
+program label_test;
+	label l1, l2, l3;
+	begin
+		writeChar('H');
+		goto l1;
+		writeChar('k');
+		writeChar('y');
+		writeChar('y');
+		l1 : writeChar('i');
+		writeChar('\n');
+		goto l3;
+
+		l3: if (readInteger() > 5) then goto l2;
+		writeChar('a');
+		writeChar('\n');
+		goto l3;
+		l2: writeChar('b');
+		writeChar('\n');
+	end.

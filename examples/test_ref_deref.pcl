@@ -1,0 +1,19 @@
+program ref_deref;
+	var x : integer;
+	var y : ^integer;
+	var z : ^^integer;
+	var w : ^^^integer;
+	begin
+		x := 5;
+		y := @x;
+		z := @y;
+		w := @z;
+		writeInteger(x);
+		writeChar('\n');
+		writeInteger(y^);
+		writeChar('\n');
+		writeInteger(z^^);
+		writeChar('\n');
+		writeInteger(w^^^);
+		writeChar('\n');
+	end.

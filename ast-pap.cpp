@@ -169,10 +169,10 @@ Value * ast_compile (ast t) {
       return c32(t->num);
     }
     case PLUS: {
-      Value *l = ast_compile(t->left);
-      Value *r = ast_compile(t->right);
-      return Builder.CreateAdd(l, r, "addtmp");
-    }
+		Value *l = ast_compile(t->left);
+		Value *r = ast_compile(t->right);
+		return Builder.CreateAdd(l, r, "addtmp");
+	}
     case MINUS: {
       Value *l = ast_compile(t->left);
       Value *r = ast_compile(t->right);

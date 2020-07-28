@@ -27,8 +27,10 @@
    -------------------------- Τύπος bool -------------------------------
    --------------------------------------------------------------------- */
 
+#include <vector>
 #include <stdbool.h>
 #include <llvm/IR/Value.h>
+#include <llvm/IR/Instructions.h>
 
 
 /*
@@ -66,7 +68,7 @@ typedef const char *  RepString;          /* Συμβολοσειρές         
 
 typedef struct Type_tag * PclType;
 
-typedef enum {                               /***** Το είδος του τύπου ****/
+typedef enum {                       /***** Το είδος του τύπου ****/
    TYPE_VOID,                        /* Κενός τύπος αποτελέσματος */
    TYPE_INTEGER,                     /* Ακέραιοι                  */
    TYPE_BOOLEAN,                     /* Λογικές τιμές             */
@@ -78,7 +80,7 @@ typedef enum {                               /***** Το είδος του τύ�
    TYPE_LABEL                        /* Ταμπέλες                  */
 } TypeKind;
 
-typedef enum {                               /* Κατάσταση παραμέτρων  */
+typedef enum {                          /* Κατάσταση παραμέτρων  */
 	PARDEF_COMPLETE,                    /* Πλήρης ορισμός     */
 	PARDEF_DEFINE,                      /* Εν μέσω ορισμού    */
 	PARDEF_CHECK                        /* Εν μέσω ελέγχου    */
@@ -86,7 +88,7 @@ typedef enum {                               /* Κατάσταση παραμέ�
 
 struct Type_tag {
     TypeKind kind;
-    PclType        refType;           /* Τύπος αναφοράς            */
+    PclType        refType;              /* Τύπος αναφοράς            */
     RepInteger     size;                 /* Μέγεθος, αν είναι πίνακας */
     unsigned int   refCount;             /* Μετρητής αναφορών         */
 };
@@ -125,9 +127,12 @@ struct SymbolEntry_tag {
 
    union {                            /* Ανάλογα με τον τύπο εγγραφής: */
 
-      struct {                                /******* Μεταβλητή *******/
-         PclType          type;               /* Τύπος                 */
-         int           offset;                /* Offset στο Ε.Δ.       */
+      struct {                                		/******* Μεταβλητή *******/
+         PclType          type;               		/* Τύπος                 */
+         int           offset;                		/* Offset στο Ε.Δ.       */
+		 llvm::AllocaInst* alloca_inst;				/* Θέση μνήμης στο llvm της μεταβλητής */
+		 llvm::BasicBlock    *block;	      		/* Xρήση μόνο στο llvm, σε περίπτωση label */
+		 std::vector<llvm::BasicBlock*> goto_stack; /* Aποθήκευση των goto blocks */
       } eVariable;
 
       struct {                                /******** Σταθερά ********/
@@ -227,9 +232,9 @@ void          destroyEntry       (SymbolEntry * e);
 SymbolEntry * lookupEntry        (const char * name, LookupType type,
                                   bool err);
 
-PclType          typeArray          (RepInteger size, PclType refType);
-PclType          typeIArray         (PclType refType);
-PclType          typePointer        (PclType refType);
+PclType       typeArray          (RepInteger size, PclType refType);
+PclType       typeIArray         (PclType refType);
+PclType       typePointer        (PclType refType);
 void          destroyType        (PclType type);
 unsigned int  sizeOfType         (PclType type);
 bool          equalType          (PclType type1, PclType type2);

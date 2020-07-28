@@ -1,0 +1,11 @@
+program testop;
+	begin
+		writeInteger(3 + 2);
+		writeChar('\n');
+		writeInteger(trunc(3 + 2.2));
+		writeChar('\n');
+		writeInteger(round(3 + 2.5));
+		writeChar('\n');
+		writeBoolean(not true);
+		writeChar('\n');
+	end.

@@ -1,0 +1,8 @@
+program whilep;
+	begin
+		while (readInteger() < 5) do
+			begin
+				writeChar('i');
+				writeChar('\n');
+			end
+	end.

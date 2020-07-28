@@ -1,0 +1,18 @@
+program test_if;
+	begin
+		if true then
+		 	begin
+				writeBoolean(true);
+				writeChar('\n');
+				if (2 > 3) then
+					begin
+						writeChar('i');
+						writeChar('\n');
+					end
+				else
+				 	begin
+						writeChar('e');
+						writeChar('\n');
+					end
+			end
+	end.

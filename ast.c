@@ -612,7 +612,7 @@ void print_ast(ast * t) {
     break;
 
   case VARREF:
-    printf("VARREF(");
+    printf("BY_REFERENCE(");
     print_ast(t->left);
     printf(" : ");
     print_ast(t->right);
@@ -789,6 +789,9 @@ int type_check(ast * t, PclType ftype) {
   ast *head, *head1;
   PclType tp;
   PassMode pass_type;
+
+  //printf("%d\n", t->k);
+
   if (!t) {
     return 1;
   }
@@ -832,9 +835,11 @@ int type_check(ast * t, PclType ftype) {
 
   case BODY:
     if (t->left && type_check(t->left, ftype)) return 1;
+	//printf("after check t->left");
     if (type_check(t->right, ftype)){
       return 1;
     }
+	//printf("after check t->right");
     break;
 
   case BOOL:
@@ -1019,12 +1024,15 @@ int type_check(ast * t, PclType ftype) {
   case NEQ:
   case EQ:
     if (type_check(t->left, ftype) || type_check(t->right, ftype)) return 1;
-    if (!((t->left->type->kind == TYPE_INTEGER || t->left->type->kind == TYPE_REAL) && (t->right->type->kind == TYPE_INTEGER || t->right->type->kind == TYPE_REAL)) && (t->left->type->kind != t->right->type->kind)){
-      if (t->k == NEQ)
-        printf("Type Error: \"<>\" arguments must be of equal type or arithmetic!\n");
-      else
-        printf("Type Error: \"=\" arguments must be of equal type or arithmetic!\n");
-      return 1;
+    if ((!((t->left->type->kind == TYPE_INTEGER || t->left->type->kind == TYPE_REAL)
+	 	&& (t->right->type->kind == TYPE_INTEGER || t->right->type->kind == TYPE_REAL))
+		&& (t->left->type->kind != t->right->type->kind))
+		|| (t->left->type->kind == TYPE_ARRAY) || (t->left->type->kind == TYPE_IARRAY) || (t->right->type->kind == TYPE_ARRAY) || (t->right->type->kind == TYPE_IARRAY)) {
+		if (t->k == NEQ)
+			printf("Type Error: \"<>\" arguments must be of equal type or arithmetic and not type array!\n");
+		else
+        	printf("Type Error: \"=\" arguments must be of equal type or arithmetic and not type array!\n");
+      	return 1;
     }
     t->type = typeBoolean;
     break;
@@ -1048,8 +1056,48 @@ int type_check(ast * t, PclType ftype) {
     t->type = typeBoolean;
     break;
 
-  case PLUS:
-  case MINUS:
+	case PLUS:
+		if (!t->right) {
+			if (type_check(t->left, ftype)) return 1;
+			if (t->left->type->kind != TYPE_INTEGER && t->left->type->kind != TYPE_REAL) {
+				printf("Type Error: Unary operand \"+\" accepts only a numeric argument\n");
+			}
+			t->type = t->left->type;
+		}
+		else {
+			if (type_check(t->left, ftype) || type_check(t->right, ftype)) return 1;
+			if (t->left->type->kind == TYPE_INTEGER && t->right->type->kind == TYPE_INTEGER) t->type = typeInteger;
+			else if (t->left->type->kind == TYPE_INTEGER && t->right->type->kind == TYPE_REAL) t->type = typeReal;
+			else if (t->left->type->kind == TYPE_REAL && t->right->type->kind == TYPE_INTEGER) t->type = typeReal;
+			else if (t->left->type->kind == TYPE_REAL && t->right->type->kind == TYPE_REAL) t->type = typeReal;
+			else {
+			  	printf("Type Error: \"+\" arguments must be arithmetic!\n");
+				return 1;
+			}
+		}
+		break;
+
+	case MINUS:
+		if (!t->right) {
+			if (type_check(t->left, ftype)) return 1;
+			if (t->left->type->kind != TYPE_INTEGER && t->left->type->kind != TYPE_REAL) {
+				printf("Type Error: Unary operand \"-\" accepts only a numeric argument\n");
+			}
+			t->type = t->left->type;
+		}
+		else {
+			if (type_check(t->left, ftype) || type_check(t->right, ftype)) return 1;
+			if (t->left->type->kind == TYPE_INTEGER && t->right->type->kind == TYPE_INTEGER) t->type = typeInteger;
+			else if (t->left->type->kind == TYPE_INTEGER && t->right->type->kind == TYPE_REAL) t->type = typeReal;
+			else if (t->left->type->kind == TYPE_REAL && t->right->type->kind == TYPE_INTEGER) t->type = typeReal;
+			else if (t->left->type->kind == TYPE_REAL && t->right->type->kind == TYPE_REAL) t->type = typeReal;
+			else {
+				printf("Type Error: \"-\" arguments must be arithmetic!\n");
+				return 1;
+			}
+		}
+		break;
+
   case TIMES:
     if (type_check(t->left, ftype) || type_check(t->right, ftype)) return 1;
     if (t->left->type->kind == TYPE_INTEGER && t->right->type->kind == TYPE_INTEGER) t->type = typeInteger;
@@ -1057,13 +1105,8 @@ int type_check(ast * t, PclType ftype) {
     else if (t->left->type->kind == TYPE_REAL && t->right->type->kind == TYPE_INTEGER) t->type = typeReal;
     else if (t->left->type->kind == TYPE_REAL && t->right->type->kind == TYPE_REAL) t->type = typeReal;
     else {
-      if (t->k == PLUS)
-        printf("Type Error: \"+\" arguments must be arithmetic!\n");
-      else if (t->k == MINUS)
-        printf("Type Error: \"-\" arguments must be arithmetic!\n");
-      else
-        printf("Type Error: \"<\" arguments must be arithmetic!\n");
-      return 1;
+        printf("Type Error: \"*\" arguments must be arithmetic!\n");
+      	return 1;
     }
     break;
 
@@ -1077,22 +1120,22 @@ int type_check(ast * t, PclType ftype) {
     break;
 
   case DEREF:
-    if (type_check(t->left, ftype)) return 1;
-    if (t->left->type) t->type = typePointer(t->left->type);
-    else {
-      printf("Type Error: \"@\" argument must pointer!\n");
-      return 1;
-    }
-    break;
+	  if (type_check(t->left, ftype)) return 1;
+	  if (t->left->type->kind == TYPE_POINTER) t->type = t->left->type->refType;
+	  else {
+		printf("Type Error: \"^\" argument must be pointer!\n");
+		return 1;
+	  }
+	  break;
 
   case REF:
-    if (type_check(t->left, ftype)) return 1;
-    if (t->left->type->kind == TYPE_POINTER) t->type = t->left->type->refType;
-    else {
-      printf("Type Error: \"^\" argument must be pointer!\n");
-      return 1;
-    }
-    break;
+	  if (type_check(t->left, ftype)) return 1;
+	  if (t->left->type) t->type = typePointer(t->left->type);
+	  else {
+		printf("Type Error: \"@\" argument must be pointer!\n");
+		return 1;
+	  }
+	  break;
 
   case SEQ_EXPR:
   case SEQ_STMT:
@@ -1114,7 +1157,7 @@ int type_check(ast * t, PclType ftype) {
       printf("Error (label): label %s does not exist!\n", t->id);
       return 1;
     }
-    if (type_check(t->right, ftype)) {
+    if (type_check(t->left, ftype)) {
       return 1;
     }
     break;
@@ -1238,9 +1281,10 @@ int type_check(ast * t, PclType ftype) {
   case LABEL:
     head = t->left;
     while (head) {
+		//printf("in while\n");
       if (lookupEntry(head->id, LOOKUP_CURRENT_SCOPE, false)) {
-	printf("Error (label): name %s already exists in this scope!\n", head->id);
-	return 1;
+		  printf("Error (label): name %s already exists in this scope!\n", head->id);
+		  return 1;
       }
       newVariable(head->id, typeLabel);
       head = head->right;
@@ -1255,8 +1299,10 @@ int type_check(ast * t, PclType ftype) {
       newVariable("result", ftype);
       t->left->type = ftype;
     }
-    if (!equalType(t->left->type, t->right->type)) {
-      printf("Type error: \":=\" arguments must be of equal type\n");
+    if (!equalType(t->left->type, t->right->type) &&
+		!(t->left->type->kind == TYPE_REAL && t->right->type->kind == TYPE_INTEGER) &&
+		!(t->left->type->kind == TYPE_POINTER && t->left->type->refType->kind == TYPE_IARRAY && t->right->type->kind == TYPE_POINTER && t->right->type->refType->kind == TYPE_ARRAY && equalType(t->left->type->refType->refType, t->right->type->refType->refType))) {
+      printf("Type error: \":=\" arguments must be of compatible type\n");
       return 1;
     }
     break;
