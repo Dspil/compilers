@@ -20,6 +20,23 @@ char make_char(char* s) {
 	return '\0';
 }
 
+char * make_string(char * s) {
+  char news[strlen(s) + 1];
+  char temp[5] = {'\'', '\\', '\0', '\'', '\0'};
+  int i = 0;
+  for (char *c = s; *c; ++c) {
+    if (*c == '\\') {
+      temp[2] = c++[1];
+      news[i++] = make_char(temp);
+    }
+    else news[i++] = *c;
+  }
+  news[i] = '\0';
+  char * ret = (char*)malloc(strlen(news) + 1);
+  strcpy(ret, news);
+  return ret;
+}
+
 ast* make_ast(kind k, char* id, char* str, int boolean, int integer, char character, long double real, int size, ast *left, ast *mid, ast *right) {
   ast * node;
   if ((node = (ast*)malloc(sizeof(ast))) == NULL) {
@@ -791,7 +808,7 @@ int type_check(ast * t, PclType ftype) {
   PassMode pass_type;
 
   //printf("%d\n", t->k);
-
+  //printSymbolTable();
   if (!t) {
     return 1;
   }
@@ -880,6 +897,7 @@ int type_check(ast * t, PclType ftype) {
       printf("Error (forward): function %s already exists!\n", t->left->sentry->id);
       return 1;
     }
+	closeScope();
     break;
 
   case GOTO:
@@ -1018,7 +1036,7 @@ int type_check(ast * t, PclType ftype) {
     break;
 
   case STR_CONST:
-    t->type = typeArray(strlen(t->str), typeChar);
+    t->type = typeArray(strlen(t->str) + 1, typeChar);
     break;
 
   case NEQ:

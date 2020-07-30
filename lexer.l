@@ -61,7 +61,7 @@ W [ \t\r\n]
 
 ('[^\'\"\n]')|'(\\\\|\\n|\\t|\\r|\\0|\\'|\\\")' {yylval.c = make_char(yytext); return t_char_const;}
 
-\"(([^\'\"])|\\\\|\\n|\\t|\\r|\\0|\\'|\\\")*\" {yylval.s = (char*)malloc(strlen(yytext)*sizeof(char)) ;strcpy(yylval.s, yytext); return t_string_const;}
+\"(([^\'\"])|\\\\|\\n|\\t|\\r|\\0|\\'|\\\")*\" {yylval.s = (char*)malloc((strlen(yytext) - 2)*sizeof(char)); memcpy(yylval.s, yytext + 1, strlen(yytext) - 2); return t_string_const;}
 
 \(\*(((\*[^)])*)|([^*]*))*\*\) {/* nothing */}
 

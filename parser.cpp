@@ -1729,7 +1729,7 @@ yyreduce:
 
   case 53:
 #line 202 "parser.y" /* yacc.c:1646  */
-    {(yyval.a) = ast_const(STR_CONST, 0, 0, '\0', 0.0, (yyvsp[0].s));}
+    {(yyval.a) = ast_const(STR_CONST, 0, 0, '\0', 0.0, make_string((yyvsp[0].s)));}
 #line 1734 "parser.cpp" /* yacc.c:1646  */
     break;
 

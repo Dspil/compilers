@@ -5,6 +5,8 @@
 #include "code_gen.hpp"
 
 #include <llvm/IR/IRBuilder.h>
+#include "llvm/ADT/STLExtras.h"
+#include "llvm/IR/Function.h"
 #include <llvm/IR/LegacyPassManager.h>
 #include <llvm/IR/Module.h>
 #include <llvm/IR/Value.h>
@@ -15,7 +17,6 @@
 #include <llvm/Transforms/Scalar/GVN.h>
 #include "llvm/Transforms/Utils.h"
 #include "llvm/Transforms/InstCombine/InstCombine.h"
-
 #endif
 
 using namespace llvm;
@@ -297,11 +298,11 @@ Value* lvalue_pointer(ast * t, Function* cur_func) {
 	switch (t->k){
 		case ID: {
 			p = lookupEntry(t->id, LOOKUP_ALL_SCOPES, false);
-			return p->u.eVariable.alloca_inst;
+			return p->alloca_inst;
 		}
 		case RESULT: {
 			p = lookupEntry("result", LOOKUP_ALL_SCOPES, false);
-			return p->u.eVariable.alloca_inst;
+			return p->alloca_inst;
 		}
 		case INDEX: {
 			if(t->left->k)
@@ -321,18 +322,48 @@ Value* lvalue_pointer(ast * t, Function* cur_func) {
 	return NULL;
 }
 
+void prepareFunctionSymbolTable(ast *t){
+	//printf("in proc\n");
+	PassMode pass_type;
+	ast *head, *head1;
+	PclType tp;
+	t->sentry = newFunction(t->id);
+	openScope();
+	if (t->left) { //t->left : seq_formal (parameters)
+		head = t->left; //seq_formal
+		while (head) {
+		//printf("in while\n");
+			tp = head->left->right->type;
+			pass_type = head->left->k == VARREF ? PASS_BY_REFERENCE : PASS_BY_VALUE;
+			head1 = head->left->left;
+			while (head1) {
+				//printf("in while2\n");
+				newParameter(head1->id, tp, pass_type, t->sentry);
+				head1 = head1->right;
+			  //printf("out while2\n");
+			}
+			//printf("out while\n");
+			head = head->right;
+		}
+		//printf("outproc\n");
+	}
+	//printf("found type\n");
+	endFunctionHeader(t->sentry, t->type);
+}
+
 Value* code_gen(ast * t, Function* cur_func) {
 	SymbolEntry *p, *p1;
     ast *head, *head1;
     PclType tp;
 	Type* llvm_tp;
-    PassMode pass_type;
 	Function * f;
 	FunctionType * f_tp;
 	Value *l, *m, *r;
 	BasicBlock *lBB, *mBB, *rBB;
+	std::vector<Type *> params;
 
 	//printf("%d\n", t->k);
+	//printSymbolTable();
     if (!t) {
       return NULL;
     }
@@ -389,6 +420,10 @@ Value* code_gen(ast * t, Function* cur_func) {
 	}
 
     case FORWARD:{
+		code_gen(t->left, cur_func);
+		forwardFunction(t->left->sentry);
+		closeScope();
+	    break;
 	}
 
     case GOTO:{
@@ -456,11 +491,37 @@ Value* code_gen(ast * t, Function* cur_func) {
 		return Builder.CreateNot(l);
 	}
 
-    case PROCEDURE:
-      break;
-
-    case FUNCTION:
-      break;
+	case FUNCTION:
+    case PROCEDURE: {
+		//printf("in proc\n");
+		prepareFunctionSymbolTable(t);
+		if (t->left) { //t->left : seq_formal (parameters)
+			head = t->left; //seq_formal
+			while (head) {
+			//printf("in while\n");
+				llvm_tp = find_llvm_type(head->left->right->type);
+				head1 = head->left->left;
+				while (head1) {
+				//printf("in while2\n");
+					params.push_back(llvm_tp);
+					head1 = head1->right;
+				  //printf("out while2\n");
+				}
+				//printf("out while\n");
+				head = head->right;
+			}
+			//printf("outproc\n");
+		}
+		//printf("found type\n");
+		//printf("made header\n");
+		f_tp = FunctionType::get(find_llvm_type(t->type), params, false);
+		//printf("found llvmtype\n");
+		f = Function::Create(f_tp, Function::InternalLinkage, t->id, TheModule.get());
+		//printf("made func\n");
+		t->sentry->u.eFunction.llvmFunc = f;
+		//printf("wtf?\n");
+		return NULL;
+	}
 
     case PROGRAM:{
 		//printf("in program\n");
@@ -474,6 +535,7 @@ Value* code_gen(ast * t, Function* cur_func) {
 		code_gen(t->left, f);
 		//printf("ran tleft\n");
 		Builder.CreateRet(c_int(0));
+		//printSymbolTable();
 		//printf("out createret\n");
 		closeScope();
 		//printf("closed scope\n");
@@ -488,8 +550,8 @@ Value* code_gen(ast * t, Function* cur_func) {
 		//printf("ran\n");
 		return NULL;
 	}
-    case REAL_CONST:{
 
+    case REAL_CONST:{
       	return c_real(t->real);
 	}
 
@@ -519,7 +581,7 @@ Value* code_gen(ast * t, Function* cur_func) {
 	}
 
     case STR_CONST: {
-		break;
+		return ConstantDataArray::getString(TheContext, t->str, true);
 	}
 
     case NEQ: {
@@ -745,7 +807,8 @@ Value* code_gen(ast * t, Function* cur_func) {
 		f = p->u.eFunction.llvmFunc;
 		std::vector<Value *> params;
   		for(head = t->left; head; head = head->right) {
-			params.push_back(code_gen(head->left, cur_func));
+			l = code_gen(head->left, cur_func);
+			params.push_back(l);
 			//printf("pushed back param\n");
 		}
 		auto ret = Builder.CreateCall(f, params);
@@ -775,7 +838,7 @@ Value* code_gen(ast * t, Function* cur_func) {
 	    for(head = t->left; head; head = head->right){
 			p = newVariable(head->id, tp);
 			//printf("made variable\n");
-			p->u.eVariable.alloca_inst = Builder.CreateAlloca(llvm_tp, 0, head->id);
+			p->alloca_inst = Builder.CreateAlloca(llvm_tp, 0, head->id);
 			//printf("alloca\n");
 	    }
 	}
@@ -785,11 +848,49 @@ Value* code_gen(ast * t, Function* cur_func) {
 		return NULL;
 	}
 
-    case DEFINITION:
-      break;
+    case DEFINITION:{
+		if(!(p = lookupEntry(t->left->id, LOOKUP_ALL_SCOPES, false))) {
+			code_gen(t->left, cur_func);
+			p = t->left->sentry;
+		}
+		else prepareFunctionSymbolTable(t);
+		//printf("edo einai\n");
+		rBB = &cur_func->getBasicBlockList().back();
+		cur_func = p->u.eFunction.llvmFunc;
+		lBB = BasicBlock::Create(TheContext, t->left->id, cur_func);
+		Builder.SetInsertPoint(lBB);
+		p1 = p->u.eFunction.firstArgument;
+		//printf("prin apo loop\n");
+		for (auto &Arg : cur_func->args()) {
+  			Arg.setName(p->id);
+			p = lookupEntry(p1->id, LOOKUP_CURRENT_SCOPE, false);
+			AllocaInst *Alloca = Builder.CreateAlloca(find_llvm_type(p1->u.eParameter.type), 0, Arg.getName());
+			//printf("gamietai\n");
+			p->alloca_inst = Alloca;
+			//printf("den gamietai\n");
+			Builder.CreateStore(&Arg, Alloca);
+			//printf("eftase\n");
+			p1 = p1->u.eParameter.next;
+		}
+		if (t->left->k == FUNCTION) {
+		  p = newVariable("result", t->left->type);
+		  p->alloca_inst = Builder.CreateAlloca(find_llvm_type(t->left->type), 0, "result");
+		}
+		code_gen(t->right, cur_func);
+		llvm_tp = cur_func->getReturnType();
+		if(llvm_tp->isVoidTy())
+			Builder.CreateRetVoid();
+		else
+			Builder.CreateRet(Builder.CreateLoad(lookupEntry("result", LOOKUP_CURRENT_SCOPE, false)->alloca_inst));
+		Builder.SetInsertPoint(rBB);
+		closeScope();
+		return NULL;
+	}
 
-    case SEQ_FORMAL:
-      break;
+    case SEQ_FORMAL: {
+		//printf("ti ginetai\n");
+		return NULL;
+	}
 
     case VARREF:{
 		break;
@@ -799,14 +900,9 @@ Value* code_gen(ast * t, Function* cur_func) {
       break;
 
     case ID:{
-		/*if(t->type->kind == TYPE_ARRAY || t->type->kind == TYPE_IARRAY) {
-			return NULL; //todo
-		}
-		else {*/
-			p = lookupEntry(t->id, LOOKUP_ALL_SCOPES, false);
-			if(p) //printf("ola popa\n");
-			return Builder.CreateLoad(p->u.eVariable.alloca_inst, t->id);
-		//}
+		p = lookupEntry(t->id, LOOKUP_ALL_SCOPES, false);
+		l = Builder.CreateLoad(p->alloca_inst);
+		return l;
 	}
 
     case LABEL:{
@@ -831,7 +927,7 @@ Value* code_gen(ast * t, Function* cur_func) {
 			case ID: {
 				p = lookupEntry(t->left->id, LOOKUP_ALL_SCOPES, false);
 				if(t->left->type->kind == TYPE_REAL && t->right->type->kind == TYPE_INTEGER) r = Builder.CreateCast(Instruction::SIToFP, r, f64);
-				Builder.CreateStore(r, p->u.eVariable.alloca_inst);
+				Builder.CreateStore(r, p->alloca_inst);
 				//printf("made store\n");
 			}
 
@@ -842,11 +938,16 @@ Value* code_gen(ast * t, Function* cur_func) {
 		return NULL;
 	}
 
-    case SEQ_ID:
-      break;
-
-    case RETURN:
-      break;
+    case RETURN: {
+		llvm_tp = cur_func->getReturnType();
+		if(llvm_tp->isVoidTy())
+			Builder.CreateRetVoid();
+		else
+			Builder.CreateRet(Builder.CreateLoad(lookupEntry("result", LOOKUP_CURRENT_SCOPE, false)->alloca_inst));
+		lBB = BasicBlock::Create(TheContext, "afterret", cur_func);
+		Builder.SetInsertPoint(lBB);
+		return NULL;
+    }
 
 	case IARRAY:
     case ARRAY:
@@ -856,8 +957,9 @@ Value* code_gen(ast * t, Function* cur_func) {
 	case POINTER:
 	case REAL:
 	case SEQ_EXPR:
+	case SEQ_ID:
 	case NIL:{
-		//printf("oups\n");
+		printf("oups\n");
 		break;
 	}
 	}

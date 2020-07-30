@@ -24,6 +24,8 @@ typedef struct node {
 } ast;
 
 char make_char(char* s);
+char * make_string(char * s);
+
 ast* make_ast(kind k, char* id, char* str, int boolean, int integer, char character, long double real, int size, ast *left, ast *mid, ast *right);
 ast* ast_op(ast *l, kind op, ast *r);
 ast* ast_id(char* id);

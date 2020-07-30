@@ -1,0 +1,6 @@
+program hot_string;
+	var x: array [5] of char;
+	begin
+		x := "kali";
+		writeString("kali");
+	end.

@@ -1049,7 +1049,7 @@ case 42:
 /* rule 42 can match eol */
 YY_RULE_SETUP
 #line 64 "lexer.l"
-{yylval.s = (char*)malloc(strlen(yytext)*sizeof(char)) ;strcpy(yylval.s, yytext); return t_string_const;}
+{yylval.s = (char*)malloc((strlen(yytext) - 2)*sizeof(char)); memcpy(yylval.s, yytext + 1, strlen(yytext) - 2); return t_string_const;}
 	YY_BREAK
 case 43:
 /* rule 43 can match eol */

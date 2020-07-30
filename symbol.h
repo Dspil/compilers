@@ -124,13 +124,13 @@ struct SymbolEntry_tag {
    unsigned int   hashValue;          /* Τιμή κατακερματισμού          */
    SymbolEntry  * nextHash;           /* Επόμενη εγγραφή στον Π.Κ.     */
    SymbolEntry  * nextInScope;        /* Επόμενη εγγραφή στην εμβέλεια */
+   llvm::AllocaInst* alloca_inst;	  /* Θέση μνήμης στο llvm της μεταβλητής */
 
    union {                            /* Ανάλογα με τον τύπο εγγραφής: */
 
       struct {                                		/******* Μεταβλητή *******/
          PclType          type;               		/* Τύπος                 */
          int           offset;                		/* Offset στο Ε.Δ.       */
-		 llvm::AllocaInst* alloca_inst;				/* Θέση μνήμης στο llvm της μεταβλητής */
 		 llvm::BasicBlock    *block;	      		/* Xρήση μόνο στο llvm, σε περίπτωση label */
 		 std::vector<llvm::BasicBlock*> goto_stack; /* Aποθήκευση των goto blocks */
       } eVariable;

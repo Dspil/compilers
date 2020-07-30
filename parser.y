@@ -199,7 +199,7 @@ lvalue {$$ = $1;}
 lvalue:
 lvalue '[' expr ']' {$$ = ast_index($1, $3);}
 | lvalue '^' {$$ = ast_op($1, DEREF, NULL);}
-|  t_string_const {$$ = ast_const(STR_CONST, 0, 0, '\0', 0.0, $1);}
+|  t_string_const {$$ = ast_const(STR_CONST, 0, 0, '\0', 0.0, make_string($1));}
 | '(' lvalue ')' {$$ = $2;}
 | t_id {$$ = ast_id($1);}
 | "result" {$$ = ast_result();}

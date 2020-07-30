@@ -1,0 +1,17 @@
+program testf;
+
+	procedure test_write (n : integer);
+		procedure test_write2 (n: integer);
+			begin
+				n := n + 1;
+				writeInteger(n);
+			end;
+		begin
+			n := n + 1;
+			test_write2(n);
+		end;
+
+	begin
+		test_write(4);
+		writeChar('\n');
+	end.

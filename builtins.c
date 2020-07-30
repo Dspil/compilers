@@ -61,9 +61,9 @@ double readReal() {
   return n;
 }
 
-int8_t* readString(int32_t size, int8_t *s) {
+void readString(int32_t size, int8_t *s) {
     if (size <= 0) {
-      return NULL;
+      return;
     }
 
     int8_t buf[size];
@@ -71,7 +71,7 @@ int8_t* readString(int32_t size, int8_t *s) {
     memset(buf, 0, size);
 
     if (size == 1) {
-      return NULL;
+      return;
     }
 
     size--;
@@ -85,7 +85,6 @@ int8_t* readString(int32_t size, int8_t *s) {
     }
 
     strcpy((char *)s, (char *)buf);
-    return NULL;
 }
 
 // ln
