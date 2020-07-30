@@ -328,6 +328,7 @@ void prepareFunctionSymbolTable(ast *t){
 	ast *head, *head1;
 	PclType tp;
 	t->sentry = newFunction(t->id);
+
 	openScope();
 	if (t->left) { //t->left : seq_formal (parameters)
 		head = t->left; //seq_formal
@@ -361,6 +362,7 @@ Value* code_gen(ast * t, Function* cur_func) {
 	Value *l, *m, *r;
 	BasicBlock *lBB, *mBB, *rBB;
 	std::vector<Type *> params;
+	AllocaInst *Alloca;
 
 	//printf("%d\n", t->k);
 	//printSymbolTable();
@@ -853,7 +855,7 @@ Value* code_gen(ast * t, Function* cur_func) {
 			code_gen(t->left, cur_func);
 			p = t->left->sentry;
 		}
-		else prepareFunctionSymbolTable(t);
+		else prepareFunctionSymbolTable(t->left);
 		//printf("edo einai\n");
 		rBB = &cur_func->getBasicBlockList().back();
 		cur_func = p->u.eFunction.llvmFunc;
@@ -862,11 +864,10 @@ Value* code_gen(ast * t, Function* cur_func) {
 		p1 = p->u.eFunction.firstArgument;
 		//printf("prin apo loop\n");
 		for (auto &Arg : cur_func->args()) {
-  			Arg.setName(p->id);
-			p = lookupEntry(p1->id, LOOKUP_CURRENT_SCOPE, false);
-			AllocaInst *Alloca = Builder.CreateAlloca(find_llvm_type(p1->u.eParameter.type), 0, Arg.getName());
+  			Arg.setName(p1->id);
+			Alloca = Builder.CreateAlloca(find_llvm_type(p1->u.eParameter.type), 0, Arg.getName());
 			//printf("gamietai\n");
-			p->alloca_inst = Alloca;
+			p1->alloca_inst = Alloca;
 			//printf("den gamietai\n");
 			Builder.CreateStore(&Arg, Alloca);
 			//printf("eftase\n");
@@ -878,6 +879,7 @@ Value* code_gen(ast * t, Function* cur_func) {
 		}
 		code_gen(t->right, cur_func);
 		llvm_tp = cur_func->getReturnType();
+
 		if(llvm_tp->isVoidTy())
 			Builder.CreateRetVoid();
 		else

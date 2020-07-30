@@ -1,17 +1,9 @@
 program testf;
-
-	procedure test_write (n : integer);
-		procedure test_write2 (n: integer);
-			begin
-				n := n + 1;
-				writeInteger(n);
-			end;
+	function add (x, y: integer; z : integer) : integer;
 		begin
-			n := n + 1;
-			test_write2(n);
+			result := x + y + z
 		end;
-
 	begin
-		test_write(4);
+		writeInteger(add(10, 11, 12));
 		writeChar('\n');
 	end.

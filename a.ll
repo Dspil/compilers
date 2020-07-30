@@ -51,31 +51,27 @@ declare void @readString(i32, i8*)
 
 define i32 @main() {
 entry:
-  call void @test_write(i32 4)
+  %0 = call i32 @add(i32 10, i32 11, i32 12)
+  call void @writeInteger(i32 %0)
   call void @writeChar(i8 10)
   ret i32 0
 }
 
-define internal void @test_write(i32 %test_write1) {
-test_write:
-  %test_write12 = alloca i32, align 4
-  store i32 %test_write1, i32* %test_write12, align 4
-  %0 = load i32, i32* %test_write12, align 4
-  %1 = add i32 %0, 1
-  store i32 %1, i32* %test_write12, align 4
-  %2 = load i32, i32* %test_write12, align 4
-  call void @test_write2(i32 %2)
-  ret void
-}
-
-define internal void @test_write2(i32 %test_write21) {
-test_write2:
-  %test_write212 = alloca i32, align 4
-  store i32 %test_write21, i32* %test_write212, align 4
-  %0 = load i32, i32* %test_write212, align 4
-  %1 = add i32 %0, 1
-  store i32 %1, i32* %test_write212, align 4
-  %2 = load i32, i32* %test_write212, align 4
-  call void @writeInteger(i32 %2)
-  ret void
+define internal i32 @add(i32 %x, i32 %y, i32 %z) {
+add:
+  %x1 = alloca i32, align 4
+  store i32 %x, i32* %x1, align 4
+  %y2 = alloca i32, align 4
+  store i32 %y, i32* %y2, align 4
+  %z3 = alloca i32, align 4
+  store i32 %z, i32* %z3, align 4
+  %result = alloca i32, align 4
+  %0 = load i32, i32* %x1, align 4
+  %1 = load i32, i32* %y2, align 4
+  %2 = add i32 %0, %1
+  %3 = load i32, i32* %z3, align 4
+  %4 = add i32 %2, %3
+  store i32 %4, i32* %result, align 4
+  %5 = load i32, i32* %result, align 4
+  ret i32 %5
 }

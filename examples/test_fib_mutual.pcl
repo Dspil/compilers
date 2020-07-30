@@ -1,0 +1,24 @@
+program testf;
+
+	forward function fib2(n : integer) : integer;
+
+	function fib1(n : integer) : integer;
+		begin
+			if n < 3 then
+				result := 1
+			else
+				result := fib2(n - 1) + fib2(n - 2)
+		end;
+
+	function fib2(n : integer) : integer;
+		begin
+			if n < 3 then
+				result := 1
+			else
+				result := fib1(n - 1) + fib1(n - 2)
+		end;
+
+	begin
+		writeInteger(fib1(10));
+		writeChar('\n');
+	end.
