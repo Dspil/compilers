@@ -1,0 +1,8 @@
+program skata;
+	var x : array [6] of char;
+	begin
+		x := "kali\n";
+		writeString(x);
+		readString(5, x);
+		writeString(x);
+	end.

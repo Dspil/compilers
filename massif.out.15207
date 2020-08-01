@@ -1,0 +1,53 @@
+desc: (none)
+cmd: ./a.out
+time_unit: i
+#-----------
+snapshot=0
+#-----------
+time=0
+mem_heap_B=0
+mem_heap_extra_B=0
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=1
+#-----------
+time=167477
+mem_heap_B=20
+mem_heap_extra_B=20
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=2
+#-----------
+time=168916
+mem_heap_B=1044
+mem_heap_extra_B=28
+mem_stacks_B=0
+heap_tree=empty
+#-----------
+snapshot=3
+#-----------
+time=172486
+mem_heap_B=1044
+mem_heap_extra_B=28
+mem_stacks_B=0
+heap_tree=peak
+n2: 1044 (heap allocation functions) malloc/new/new[], --alloc-fns, etc.
+ n1: 1024 0x524F1FA: _IO_file_doallocate (filedoalloc.c:101)
+  n1: 1024 0x525F3E7: _IO_doallocbuf (genops.c:365)
+   n1: 1024 0x525E506: _IO_file_overflow@@GLIBC_2.2.5 (fileops.c:759)
+    n1: 1024 0x522F14F: vfprintf (vfprintf.c:1643)
+     n1: 1024 0x5235FA4: printf (printf.c:33)
+      n1: 1024 0x4007DF: writeChar (in /home/danai/Desktop/compilers/a.out)
+       n0: 1024 0x400739: main (in /home/danai/Desktop/compilers/a.out)
+ n1: 20 0x400A62: cMalloc (in /home/danai/Desktop/compilers/a.out)
+  n0: 20 0x400729: main (in /home/danai/Desktop/compilers/a.out)
+#-----------
+snapshot=4
+#-----------
+time=172486
+mem_heap_B=20
+mem_heap_extra_B=20
+mem_stacks_B=0
+heap_tree=empty

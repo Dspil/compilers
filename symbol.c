@@ -31,6 +31,9 @@
 #include "error.h"
 #include "symbol.h"
 
+#include <llvm/IR/Value.h>
+#include <llvm/IR/Instructions.h>
+
 
 /* ---------------------------------------------------------------------
    ------------- Καθολικές μεταβλητές του πίνακα συμβόλων --------------
@@ -229,6 +232,7 @@ static SymbolEntry * newEntry (const char * name)
   strcpy((char *) (e->id), name);
   e->hashValue    = PJW_hash(name) % hashTableSize;
   e->nestingLevel = currentScope->nestingLevel;
+  e->alloca_inst = NULL;
   insertEntry(e);
   return e;
 }
@@ -244,6 +248,7 @@ SymbolEntry * newVariable (const char * name, PclType type)
     currentScope->negOffset -= sizeOfType(type);
     e->u.eVariable.offset = currentScope->negOffset;
 	e->u.eVariable.block = NULL;
+	e->u.eVariable.goto_stack = std::vector<llvm::BasicBlock*>();
   }
   return e;
 }
@@ -357,6 +362,7 @@ SymbolEntry * newFunction (const char * name)
       e->u.eFunction.pardef = PARDEF_DEFINE;
       e->u.eFunction.firstArgument = e->u.eFunction.lastArgument = NULL;
       e->u.eFunction.resultType = NULL;
+	  e->u.eFunction.llvmFunc = NULL;
     }
     return e;
   }
@@ -364,6 +370,7 @@ SymbolEntry * newFunction (const char * name)
     e->u.eFunction.isForward = false;
     e->u.eFunction.pardef = PARDEF_CHECK;
     e->u.eFunction.lastArgument = NULL;
+	e->u.eFunction.llvmFunc = NULL;
     return e;
   }
   else {
@@ -577,6 +584,7 @@ PclType typeIArray (PclType refType)
   n->kind     = TYPE_IARRAY;
   n->refType  = refType;
   n->refCount = 1;
+  n->size = 0;
 
   refType->refCount++;
 

@@ -30,6 +30,7 @@ static std::unique_ptr<legacy::FunctionPassManager> TheFPM;
 static Type * i1 = IntegerType::get(TheContext, 1);
 static Type * i8 = IntegerType::get(TheContext, 8);
 static Type * i32 = IntegerType::get(TheContext, 32);
+static Type * i64 = IntegerType::get(TheContext, 64);
 static Type * f64 = Type::getDoubleTy(TheContext);
 static Type * proc = Type::getVoidTy(TheContext);
 
@@ -48,6 +49,7 @@ inline ConstantFP* c_real(double n) {
 }
 
 Type* find_llvm_type(PclType tp) {
+	//printf("megethos1 %d\n", tp->size);
 	switch(tp->kind) {
 		case TYPE_INTEGER:{
 			return i32;
@@ -119,7 +121,7 @@ void generate_builtins() {
 	openScope();
 	newParameter("s", typeIArray(typeChar), PASS_BY_REFERENCE, p);
 	endFunctionHeader(p, typeVoid);
-	tp = FunctionType::get(proc, std::vector<Type *>{i8->getPointerTo()}, false);
+	tp = FunctionType::get(proc, std::vector<Type *>{ArrayType::get(i8, 0)->getPointerTo()}, false);
 	f = Function::Create(tp, Function::ExternalLinkage, "writeString", TheModule.get());
 	p->u.eFunction.llvmFunc = f;
 	closeScope();
@@ -281,23 +283,37 @@ void generate_builtins() {
 	p->u.eFunction.llvmFunc = f;
 	closeScope();
 
+
 	p = newFunction("readString");
 	openScope();
 	newParameter("size", typeInteger, PASS_BY_VALUE, p);
 	newParameter("s", typeIArray(typeChar), PASS_BY_REFERENCE, p);
 	endFunctionHeader(p, typeVoid);
-	tp = FunctionType::get(proc, std::vector<Type *>{i32, i8->getPointerTo()}, false);
+	tp = FunctionType::get(proc, std::vector<Type *>{i32, ArrayType::get(i8, 0)->getPointerTo()}, false);
 	f = Function::Create(tp, Function::ExternalLinkage, "readString", TheModule.get());
 	p->u.eFunction.llvmFunc = f;
 	closeScope();
+
+	p = newFunction("cMalloc");
+	openScope();
+	newParameter("s", typeInteger, PASS_BY_VALUE, p);
+	endFunctionHeader(p, typeInteger);
+	tp = FunctionType::get(i32, std::vector<Type *>{i64}, false);
+	f = Function::Create(tp, Function::ExternalLinkage, "cMalloc", TheModule.get());
+	p->u.eFunction.llvmFunc = f;
+	closeScope();
+
 }
 
 Value* lvalue_pointer(ast * t, Function* cur_func) {
 	SymbolEntry * p;
 	Value *l, *r;
+	AllocaInst *Alloca;
 	switch (t->k){
 		case ID: {
 			p = lookupEntry(t->id, LOOKUP_ALL_SCOPES, false);
+			if (p->entryType == ENTRY_PARAMETER && p->u.eParameter.mode == PASS_BY_REFERENCE)
+				return Builder.CreateLoad(p->alloca_inst);
 			return p->alloca_inst;
 		}
 		case RESULT: {
@@ -313,6 +329,9 @@ Value* lvalue_pointer(ast * t, Function* cur_func) {
 		case DEREF: {
 			l = code_gen(t->left, cur_func);
 			return l;
+		}
+		case STR_CONST: {
+			return Builder.CreateGlobalStringPtr(t->str);
 		}
 		default: {
 			return NULL;
@@ -361,14 +380,15 @@ Value* code_gen(ast * t, Function* cur_func) {
 	FunctionType * f_tp;
 	Value *l, *m, *r;
 	BasicBlock *lBB, *mBB, *rBB;
-	std::vector<Type *> params;
+	std::vector<Type *> params = std::vector<Type *>();
 	AllocaInst *Alloca;
 
-	//printf("%d\n", t->k);
+	//printf("%d %s\n", t->k, t->id);
 	//printSymbolTable();
     if (!t) {
       return NULL;
     }
+
     switch (t->k) {
 
     case AND: {
@@ -425,7 +445,7 @@ Value* code_gen(ast * t, Function* cur_func) {
 		code_gen(t->left, cur_func);
 		forwardFunction(t->left->sentry);
 		closeScope();
-	    break;
+	    return NULL;
 	}
 
     case GOTO:{
@@ -444,6 +464,7 @@ Value* code_gen(ast * t, Function* cur_func) {
 			Builder.SetInsertPoint(lBB);
 			return NULL;
 		}
+		return NULL;
 	}
 
     case IF:{
@@ -482,11 +503,46 @@ Value* code_gen(ast * t, Function* cur_func) {
 		return c_int(t->integer);
 	}
 
-    case NEW:
-    	break;
-
-	case DISPOSE:
-		break;
+    case NEW: {
+		//printf("in new\n");
+		p = lookupEntry("cMalloc", LOOKUP_ALL_SCOPES, false);
+		if(!p) printf("oups\n");
+		r = lvalue_pointer(t->right, cur_func);
+		if(t->left) {
+			//printf("in new1\n");
+			l = code_gen(t->left, cur_func);
+			//printf("in new2\n");
+			//printf("prin\n");
+			m = Builder.CreateIntToPtr(c_int(0), find_llvm_type(t->right->type->refType->refType)->getPointerTo());
+			//printf("meta\n");
+			m = Builder.CreateGEP(m, c_int(1));
+			m = Builder.CreatePtrToInt(m, i32);
+			m = Builder.CreateMul(l, m);
+			m = Builder.CreateZExt(m, i64);
+			m = Builder.CreateCall(p->u.eFunction.llvmFunc, std::vector<Value *>{m});
+			m = Builder.CreateIntToPtr(m, find_llvm_type(t->right->type->refType)->getPointerTo());
+			//printf("shit\n");
+			Builder.CreateStore(m, r);
+			//Builder.CreateStore(Builder.CreateAlloca(find_llvm_type(t->right->type->refType), l), r);
+			//printf("in new3\n");
+		}
+		else {
+			m = Builder.CreateIntToPtr(c_int(0), find_llvm_type(t->right->type));
+			//printf("meta\n");
+			m = Builder.CreateGEP(m, c_int(1));
+			m = Builder.CreatePtrToInt(m, i64);
+			m = Builder.CreateCall(p->u.eFunction.llvmFunc, std::vector<Value *>{m});
+			m = Builder.CreateIntToPtr(m, find_llvm_type(t->right->type));
+			//printf("shit\n");
+			Builder.CreateStore(m, r);
+			//printf("in new4\n");
+			//Builder.CreateMalloc(cur_func->getBasicBlockList().back(), NULL, find_llvm_type(t->right->type->refType), NULL, l, NULL, cur_func);
+			//Builder.CreateStore(Builder.CreateAlloca(find_llvm_type(t->right->type->refType), 0, "newtmp"), r);
+			//printf("in new5\n");
+		}
+		//printf("out new\n");
+    	return NULL;
+	}
 
     case NOT:{
 		l = code_gen(t->left, cur_func);
@@ -497,17 +553,22 @@ Value* code_gen(ast * t, Function* cur_func) {
     case PROCEDURE: {
 		//printf("in proc\n");
 		prepareFunctionSymbolTable(t);
+		//printf("mesa\n");
+		p1 = t->sentry->u.eFunction.firstArgument;
+		//printf("mesa1\n");
 		if (t->left) { //t->left : seq_formal (parameters)
 			head = t->left; //seq_formal
 			while (head) {
 			//printf("in while\n");
 				llvm_tp = find_llvm_type(head->left->right->type);
+				if (p1->u.eParameter.mode == PASS_BY_REFERENCE) llvm_tp = llvm_tp->getPointerTo();
 				head1 = head->left->left;
 				while (head1) {
-				//printf("in while2\n");
+					//printf("in while2\n");
 					params.push_back(llvm_tp);
 					head1 = head1->right;
-				  //printf("out while2\n");
+					p1 = p1->u.eParameter.next;
+				  	//printf("out while2\n");
 				}
 				//printf("out while\n");
 				head = head->right;
@@ -557,11 +618,12 @@ Value* code_gen(ast * t, Function* cur_func) {
       	return c_real(t->real);
 	}
 
-    case RESULT:
-      break;
+    case RESULT: {
+      return NULL;
+  }
 
     case VAR:{
-
+		return NULL;
 	}
 
     case WHILE:{
@@ -806,12 +868,29 @@ Value* code_gen(ast * t, Function* cur_func) {
     case CALL:{
 		//printf("in call\n");
 		p = lookupEntry(t->id, LOOKUP_ALL_SCOPES, true);
+		p1 = p->u.eFunction.firstArgument;
 		f = p->u.eFunction.llvmFunc;
+		//printf("before call %s\n", t->id);
+		//printf("%s\n", p->id);
 		std::vector<Value *> params;
   		for(head = t->left; head; head = head->right) {
-			l = code_gen(head->left, cur_func);
+
+			if (p1->u.eParameter.mode == PASS_BY_REFERENCE){
+				l = lvalue_pointer(head->left, cur_func);
+				//printf("megethos2 %d\n", p1->u.eParameter.type->size);
+				if(l->getType() != find_llvm_type(p1->u.eParameter.type)->getPointerTo()){
+					//printf("edo skatoules\n");
+					l = Builder.CreateBitCast(l, find_llvm_type(p1->u.eParameter.type)->getPointerTo());
+					//printf("edo skatoules\n");
+				}
+			}
+			else {
+				l = code_gen(head->left, cur_func);
+			}
+
 			params.push_back(l);
 			//printf("pushed back param\n");
+			p1 = p1->u.eParameter.next;
 		}
 		auto ret = Builder.CreateCall(f, params);
 		//printf("made call\n");
@@ -820,20 +899,26 @@ Value* code_gen(ast * t, Function* cur_func) {
 
     case SEQ_LOCAL:{
 		//printf("in seq local\n");
-		for(head = t; head; head = head->right)
-	    	code_gen(head->left, cur_func);
+		for(head = t; head; head = head->right) {
+			//printf("in seq_local %d\n", head->left->k);
+			code_gen(head->left, cur_func);
+			//printf("out seq_local %d\n", head->left->k);
+		}
 		//printf("out seq local\n");
 		return NULL;
 	}
 
     case SEQ_LOCAL_VAR:{
-		for(head = t; head; head = head->right)
+		for(head = t; head; head = head->right) {
+			//printf("in seq local var %d\n", head->left->k);
 			code_gen(head->left, cur_func);
+			//printf("out seq local var %d\n", head->left->k);
+		}
 		return NULL;
 	}
 
     case LOCAL_VAR_INSTANCE:{
-		//printf("in lvi\n");
+		//printf("in local_var_instance %d\n", t->left->k);
 		tp = t->right->type;
 	    llvm_tp = find_llvm_type(tp);
 		//printf("found type\n");
@@ -843,10 +928,14 @@ Value* code_gen(ast * t, Function* cur_func) {
 			p->alloca_inst = Builder.CreateAlloca(llvm_tp, 0, head->id);
 			//printf("alloca\n");
 	    }
+		//printf("out local_var_instance %d\n", t->left->k);
+		return NULL;
 	}
 
     case LOCAL_VAR:{
+		//printf("in local var %d\n", t->left->k);
 		code_gen(t->left, cur_func);
+		//printf("out local var\n");
 		return NULL;
 	}
 
@@ -865,10 +954,15 @@ Value* code_gen(ast * t, Function* cur_func) {
 		//printf("prin apo loop\n");
 		for (auto &Arg : cur_func->args()) {
   			Arg.setName(p1->id);
-			Alloca = Builder.CreateAlloca(find_llvm_type(p1->u.eParameter.type), 0, Arg.getName());
+			if(p1->u.eParameter.mode == PASS_BY_REFERENCE) {
+				Alloca = Builder.CreateAlloca(find_llvm_type(p1->u.eParameter.type)->getPointerTo(), 0, Arg.getName());
+			}
+			else {
+				Alloca = Builder.CreateAlloca(find_llvm_type(p1->u.eParameter.type), 0, Arg.getName());
+			}
 			//printf("gamietai\n");
 			p1->alloca_inst = Alloca;
-			//printf("den gamietai\n");
+			if(Arg.getType() == ArrayType::get(i8, 0)->getPointerTo()->getPointerTo()) printf("ola sosta\n");
 			Builder.CreateStore(&Arg, Alloca);
 			//printf("eftase\n");
 			p1 = p1->u.eParameter.next;
@@ -886,24 +980,31 @@ Value* code_gen(ast * t, Function* cur_func) {
 			Builder.CreateRet(Builder.CreateLoad(lookupEntry("result", LOOKUP_CURRENT_SCOPE, false)->alloca_inst));
 		Builder.SetInsertPoint(rBB);
 		closeScope();
+		//printf("ola kala\n");
 		return NULL;
 	}
 
-    case SEQ_FORMAL: {
-		//printf("ti ginetai\n");
-		return NULL;
+    case DISPOSE_ARRAY:{
+		//printf("in\n");
+		l = code_gen(t->left, cur_func);
+		auto inst = CallInst::CreateFree(l, Builder.GetInsertBlock());
+		Builder.GetInsertBlock()->getInstList().push_back(inst);
+		Builder.CreateStore(Builder.CreateIntToPtr(c_int(0), find_llvm_type(t->left->type)), lvalue_pointer(t->left, cur_func));
+    	return NULL;
 	}
 
-    case VARREF:{
-		break;
+	case DISPOSE:{
+		l = code_gen(t->left, cur_func);
+		auto inst = CallInst::CreateFree(l, Builder.GetInsertBlock());
+		Builder.GetInsertBlock()->getInstList().push_back(inst);
+		Builder.CreateStore(Builder.CreateIntToPtr(c_int(0), find_llvm_type(t->left->type)), lvalue_pointer(t->left, cur_func));
+    	return NULL;
 	}
-
-    case DISPOSE_ARRAY:
-      break;
 
     case ID:{
 		p = lookupEntry(t->id, LOOKUP_ALL_SCOPES, false);
 		l = Builder.CreateLoad(p->alloca_inst);
+		if (p->entryType == ENTRY_PARAMETER && p->u.eParameter.mode == PASS_BY_REFERENCE) l = Builder.CreateLoad(l);
 		return l;
 	}
 
@@ -924,19 +1025,6 @@ Value* code_gen(ast * t, Function* cur_func) {
 		l = lvalue_pointer(t->left, cur_func);
 		if (t->left->type->kind == TYPE_REAL && t->right->type->kind == TYPE_INTEGER) r = Builder.CreateCast(Instruction::SIToFP, r, f64);
 		Builder.CreateStore(r, l);
-		//printf("calculated expression\n");
-		/*switch(t->left->k) {
-			case ID: {
-				p = lookupEntry(t->left->id, LOOKUP_ALL_SCOPES, false);
-				if(t->left->type->kind == TYPE_REAL && t->right->type->kind == TYPE_INTEGER) r = Builder.CreateCast(Instruction::SIToFP, r, f64);
-				Builder.CreateStore(r, p->alloca_inst);
-				//printf("made store\n");
-			}
-
-			case INDEX:{
-				l = code_gen(t->left, cur_func);
-			}
-		}*/
 		return NULL;
 	}
 
@@ -951,6 +1039,8 @@ Value* code_gen(ast * t, Function* cur_func) {
 		return NULL;
     }
 
+	case VARREF:
+	case SEQ_FORMAL:
 	case IARRAY:
     case ARRAY:
 	case INT:
@@ -961,8 +1051,11 @@ Value* code_gen(ast * t, Function* cur_func) {
 	case SEQ_EXPR:
 	case SEQ_ID:
 	case NIL:{
-		printf("oups\n");
-		break;
+		printf("oups %d\n", t->k);
+		return NULL;
+	}
+	default:{
+		return NULL;
 	}
 	}
     return NULL;

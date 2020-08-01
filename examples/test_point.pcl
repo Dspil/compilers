@@ -1,0 +1,21 @@
+program point;
+	var x: ^ array [2] of array [2] of integer;
+		y: array [2] of array [2] of integer;
+	procedure m(var x : ^array of array of integer);
+		begin
+			writeInteger(x^[0][0]);
+			writeChar('\n');
+			writeInteger(x^[1][1]);
+			writeChar('\n');
+		end;
+
+	begin
+		x := @y;
+		x^[0][0] := 2;
+		x^[1][1] := 3;
+		writeInteger(x^[0][0]);
+		writeChar('\n');
+		writeInteger(x^[1][1]);
+		writeChar('\n');
+		m(x);
+	end.

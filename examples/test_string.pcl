@@ -1,6 +1,29 @@
 program hot_string;
-	var x: array [5] of char;
+	var x : array [6] of char;
+	procedure writest(var x: array of char);
+		var i: integer;
+		begin
+			i := 0;
+			while x[i] <> '\0' do
+				begin
+					writeChar(x[i]);
+					i := i + 1;
+				end;
+		end;
+
+	procedure readst(n : integer; var x: array of char);
+		var i : integer;
+		begin
+			i := 0;
+			while i < n do
+				begin
+					x[i] := readChar();
+					i := i + 1;
+				end;
+			x[i] := '\0';
+		end;
+
 	begin
-		x := "kali";
-		writeString("kali");
+		x := "kali\n";
+		writest(x);
 	end.

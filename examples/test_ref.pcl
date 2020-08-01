@@ -1,0 +1,12 @@
+program ref;
+	var x : array [5] of integer;
+	procedure f(var x: array of integer);
+		begin
+			x[3] := x[3] + 5;
+		end;
+	begin
+		x[3] := 2;
+		f(x);
+		writeInteger(x[3]);
+		writeChar('\n');
+	end.

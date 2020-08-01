@@ -1,0 +1,14 @@
+program testf;
+	var x : integer;
+	procedure add (var z : integer);
+		begin
+			z := z + 1;
+			writeInteger(z);
+			writeChar('\n');
+		end;
+	begin
+		x := 5;
+		add(x);
+		writeInteger(x);
+		writeChar('\n');
+	end.

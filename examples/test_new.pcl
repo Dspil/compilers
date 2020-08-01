@@ -1,0 +1,6 @@
+program test_new;
+	var x : ^array of char;
+	begin
+		new [10] x;
+		dispose [] x;
+	end.

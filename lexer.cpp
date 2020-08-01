@@ -1066,7 +1066,7 @@ YY_RULE_SETUP
 case 45:
 YY_RULE_SETUP
 #line 70 "lexer.l"
-{ERROR("illegal token");}
+{ERROR("illegal token "); ERROR(yytext);}
 	YY_BREAK
 case 46:
 YY_RULE_SETUP

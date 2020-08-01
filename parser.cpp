@@ -2158,14 +2158,13 @@ yyreturn:
 
 
 int main() {
-  //printf("%lu\n", (long)t);
   int result = yyparse();
-  //printf("%s\n", (char*)(t+4));
-  //printf("etoimo\n");
-  //printf("%lu\n", (long)t);
   if (result == 0) {
-    //print_ast(t);
-    if(type_checking(t)) return 1;
+  	//print_ast(t);
+    if(type_checking(t)) {
+		printf("Type Checking Failed!\n");
+		return 1;
+	}
 	generate_code(t);
   }
   return result;

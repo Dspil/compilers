@@ -1,9 +1,14 @@
 program testf;
-	function add (x, y: integer; z : integer) : integer;
+	var x : integer;
+	procedure add (z : integer);
 		begin
-			result := x + y + z
+			z := z + 1;
+			writeInteger(z);
+			writeChar('\n');
 		end;
 	begin
-		writeInteger(add(10, 11, 12));
+		x := 5;
+		add(5);
+		writeInteger(x);
 		writeChar('\n');
 	end.

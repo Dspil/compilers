@@ -37,7 +37,7 @@ char * make_string(char * s) {
   return ret;
 }
 
-ast* make_ast(kind k, char* id, char* str, int boolean, int integer, char character, long double real, int size, ast *left, ast *mid, ast *right) {
+ast* make_ast(kind k, char* id, char* str, int boolean, int integer, char character, long double real, int size = 0, ast *left = NULL, ast *mid = NULL, ast *right = NULL) {
   ast * node;
   if ((node = (ast*)malloc(sizeof(ast))) == NULL) {
     exit(1);
@@ -597,7 +597,7 @@ void print_ast(ast * t) {
     break;
 
   case LOCAL_VAR:
-    printf("VAR(");
+    printf("LOCAL_VAR(");
     print_ast(t->left);
     head = t->right;
     while(head != NULL) {
@@ -683,6 +683,7 @@ void define_builtins() {
   newParameter("r", typeReal, PASS_BY_VALUE, p);
   endFunctionHeader(p, typeVoid);
   closeScope();
+
 
   p = newFunction("writeString");
   openScope();
@@ -793,12 +794,25 @@ void define_builtins() {
   endFunctionHeader(p, typeReal);
   closeScope();
 
+
   p = newFunction("readString");
   openScope();
   newParameter("size", typeInteger, PASS_BY_VALUE, p);
   newParameter("s", typeIArray(typeChar), PASS_BY_REFERENCE, p);
   endFunctionHeader(p, typeVoid);
   closeScope();
+
+  p = newFunction("cMalloc");
+  openScope();
+  newParameter("s", typeInteger, PASS_BY_VALUE, p);
+  endFunctionHeader(p, typeInteger);
+  closeScope();
+}
+
+bool check_compatible(PclType def_t, PclType pass_t) {
+	if (equalType(def_t, pass_t)) return true;
+	if (def_t->kind == TYPE_IARRAY && pass_t->kind == TYPE_ARRAY) return check_compatible(def_t->refType, pass_t->refType);
+	return false;
 }
 
 int type_check(ast * t, PclType ftype) {
@@ -922,7 +936,8 @@ int type_check(ast * t, PclType ftype) {
     break;
 
   case NEW:
-    if (!t->left) {
+  //printf("in\n");
+    if (!(t->left)) {
       if (type_check(t->right, ftype)) return 1;
       if (t->right->type->kind != TYPE_POINTER || (!t->right->full)){
         printf("Type Error: \"new\" argument must be full type and pointer!\n");
@@ -930,15 +945,18 @@ int type_check(ast * t, PclType ftype) {
       }
     }
     else {
+		//printf("in else\n");
       if (type_check(t->left, ftype) || type_check(t->right, ftype)) return 1;
+	  //printf("typechecked\n");
       if (t->left->type->kind != TYPE_INTEGER){
         printf("Type Error: \"new\" size must be integer!\n");
         return 1;
       }
-      if (t->right->type->kind != TYPE_POINTER  || (t->right->type->refType->kind != TYPE_ARRAY && t->left->type->refType->kind != TYPE_IARRAY) || (!t->right->full)){
-        printf("Type Error: \"new\" argument must be pointer to array of a full type!\n");
+	  if (t->right->type->kind != TYPE_POINTER  || t->right->type->refType->kind != TYPE_IARRAY) {
+        printf("Type Error: \"new [size]\" argument must be pointer to indefinite array!\n");
         return 1;
       }
+	  //printf("here\n");
     }
     break;
 
@@ -1206,18 +1224,10 @@ int type_check(ast * t, PclType ftype) {
         printf("Error (call function): more arguments given to function %s than needed!\n", t->id);
         return 1;
       }
-      if (p1->u.eParameter.type->kind == TYPE_IARRAY &&
-	    (head->left->type->kind == TYPE_ARRAY ||
-	     head->left->type->kind == TYPE_IARRAY)) {
-	        if (!equalType(head->left->type->refType, p1->u.eParameter.type->refType)) {
-	           printf("Error (call function): argument type mismatch to function %s!\n", t->id);
-	           return 1;
-	        }
-      }
-      else if (!equalType(head->left->type, p1->u.eParameter.type)) {
-	       printf("Error (call function): argument type mismatch to function %s!\n", t->id);
-	       return 1;
-      }
+      if (!check_compatible(p1->u.eParameter.type, head->left->type)){
+           printf("Error (call function): argument type mismatch to function %s!\n", t->id);
+           return 1;
+	  }
       head = head->right;
       p1 = p1->u.eParameter.next;
     }
@@ -1280,7 +1290,10 @@ int type_check(ast * t, PclType ftype) {
 
   case DISPOSE_ARRAY:
     if (type_check(t->left, ftype)) return 1;
-    if (t->left->type->kind != TYPE_ARRAY && t->left->type->kind != TYPE_IARRAY) return 1;
+    if (t->left->type->kind != TYPE_POINTER || t->left->type->refType->kind != TYPE_IARRAY) {
+		printf("Type Error: \"dispose []\" argument must be pointer to indefinite array!\n");
+		return 1;
+	}
     break;
 
   case ID:
@@ -1326,7 +1339,7 @@ int type_check(ast * t, PclType ftype) {
     break;
 
   case POINTER:
-    if (type_check(t->left, ftype)) return 1;
+    if (type_check(t->left, ftype))	return 1;
     t->type = typePointer(t->left->type);
     break;
 

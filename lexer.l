@@ -67,7 +67,7 @@ W [ \t\r\n]
 
 {W}+ {/* nothing */}
 
-. {ERROR("illegal token");}
+. {ERROR("illegal token "); ERROR(yytext);}
 
 %%
 

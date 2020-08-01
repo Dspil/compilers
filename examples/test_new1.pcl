@@ -1,0 +1,36 @@
+program test_new;
+	var y : ^array [2] of array [2] of integer;
+
+	procedure print_array(var ar : array of array of integer; size : integer);
+		var i, j : integer;
+		begin
+			i := 0;
+			j := 0;
+			writeInteger(ar[1][1]);
+			writeChar('\n');
+			while i < size do
+				begin
+					while j < size - 1 do
+						begin
+							writeInteger(i);
+							writeChar('\n');
+							writeInteger(ar[i][j]);
+							writeString(", ");
+							j := j + 1;
+						end;
+					writeInteger(ar[i][j]);
+					writeChar('\n');
+					j := 0;
+					i := i + 1;
+				end;
+		end;
+	begin
+		new y;
+		y^[0][0] := 0;
+		y^[0][1] := 1;
+		y^[1][0] := 2;
+		y^[1][1] := 3;
+		writeInteger(y^[1][1]);
+		writeChar('\n');
+		print_array(y^, 2);
+	end.
