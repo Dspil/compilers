@@ -24,9 +24,15 @@ typedef struct node {
 } ast;
 
 char make_char(char* s);
+
 char * make_string(char * s);
 
+void define_builtins();
+
+bool check_compatible(PclType def_t, PclType pass_t);
+
 ast* make_ast(kind k, char* id, char* str, int boolean, int integer, char character, long double real, int size, ast *left, ast *mid, ast *right);
+
 ast* ast_op(ast *l, kind op, ast *r);
 ast* ast_id(char* id);
 ast* ast_begin(ast * l);
@@ -50,14 +56,17 @@ ast* ast_return();
 ast* ast_while(ast * l, ast * r);
 ast* ast_call(char * id, ast * l);
 ast* ast_assign(ast * l, ast * r);
-ast* ast_type(kind k, int size, ast * l); //size -1 for incomplete
+ast* ast_type(kind k, int size, ast * l); //size 0 for incomplete
 ast* ast_header(kind k, char * id, ast * l, ast * r);
 ast* ast_local(kind k, ast * l, ast * r);
 ast* ast_seq_local(kind k, ast * l, ast * r);
 ast* ast_local_var_instance(ast * l, ast * r);
 ast* ast_seq_local_var(ast * l, ast * r);
 ast* ast_body(ast * l, ast * r);
+
 void print_ast(ast * t);
+
 int type_check(ast * t, PclType ftype);
+
 int type_checking(ast * t);
 #endif

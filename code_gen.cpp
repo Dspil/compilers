@@ -73,6 +73,10 @@ Type* find_llvm_type(PclType tp) {
 		case TYPE_POINTER:{
 			return find_llvm_type(tp->refType)->getPointerTo();
 		}
+		default: { //Should not be reached
+			printf("Unknown error\n");
+			return NULL;
+		}
 	}
 }
 
@@ -308,7 +312,6 @@ void generate_builtins() {
 Value* lvalue_pointer(ast * t, Function* cur_func) {
 	SymbolEntry * p;
 	Value *l, *r;
-	AllocaInst *Alloca;
 	switch (t->k){
 		case ID: {
 			p = lookupEntry(t->id, LOOKUP_ALL_SCOPES, false);
@@ -771,11 +774,12 @@ Value* code_gen(ast * t, Function* cur_func) {
 
     case MINUS:{
 		l = code_gen(t->left, cur_func);
-		if (!t->right)
+		if (!t->right) {
 			if (t->left->type->kind == TYPE_REAL)
 				return Builder.CreateFSub(c_real(0.0), l);
 			else
 				return Builder.CreateSub(c_int(0), l);
+		}
 		r = code_gen(t->right, cur_func);
 		if(t->left->type->kind == TYPE_INTEGER && t->right->type->kind == TYPE_REAL) {
 			l = Builder.CreateCast(Instruction::SIToFP, l, f64);
@@ -1020,9 +1024,12 @@ Value* code_gen(ast * t, Function* cur_func) {
 	}
 
     case ASSIGN:{
-		//printf("in assign\n");
-		r = code_gen(t->right, cur_func);
 		l = lvalue_pointer(t->left, cur_func);
+		if(t->right->k == NIL){
+			Builder.CreateStore(Builder.CreateIntToPtr(c_int(0), find_llvm_type(t->left->type)), l);
+			return NULL;
+		}
+		r = code_gen(t->right, cur_func);
 		if (t->left->type->kind == TYPE_REAL && t->right->type->kind == TYPE_INTEGER) r = Builder.CreateCast(Instruction::SIToFP, r, f64);
 		Builder.CreateStore(r, l);
 		return NULL;
@@ -1064,6 +1071,6 @@ Value* code_gen(ast * t, Function* cur_func) {
 void generate_code(ast *t) {
 	TheModule = std::make_unique<Module>("pcl program", TheContext);
 	initSymbolTable(256);
-	Value *ret = code_gen(t, NULL);
+	code_gen(t, NULL);
     TheModule->print(outs(), nullptr);
 }

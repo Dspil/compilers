@@ -47,12 +47,12 @@ static unsigned int   hashTableSize;   /* Μέγεθος πίνακα κατακ
 static SymbolEntry ** hashTable;       /* Πίνακας κατακερματισμού        */
 
 static struct Type_tag typeConst [] = {
-  { TYPE_VOID,    NULL, 0, 0 },
-  { TYPE_INTEGER, NULL, 0, 0 },
-  { TYPE_BOOLEAN, NULL, 0, 0 },
-  { TYPE_CHAR,    NULL, 0, 0 },
-  { TYPE_REAL,    NULL, 0, 0 },
-  { TYPE_LABEL,   NULL, 0, 0 }
+  { TYPE_VOID,    NULL, 0, 0, 1 },
+  { TYPE_INTEGER, NULL, 0, 0, 1 },
+  { TYPE_BOOLEAN, NULL, 0, 0, 1 },
+  { TYPE_CHAR,    NULL, 0, 0, 1 },
+  { TYPE_REAL,    NULL, 0, 0, 1 },
+  { TYPE_LABEL,   NULL, 0, 0, 1 }
 };
 
 const PclType typeVoid    = &(typeConst[0]);
@@ -571,6 +571,7 @@ PclType typeArray (RepInteger size, PclType refType)
   n->refType  = refType;
   n->size     = size;
   n->refCount = 1;
+  n->full = n->refType->full;
 
   refType->refCount++;
 
@@ -585,6 +586,7 @@ PclType typeIArray (PclType refType)
   n->refType  = refType;
   n->refCount = 1;
   n->size = 0;
+  n->full = 0;
 
   refType->refCount++;
 
@@ -598,6 +600,7 @@ PclType typePointer (PclType refType)
   n->kind     = TYPE_POINTER;
   n->refType  = refType;
   n->refCount = 1;
+  n->full = n->refType->full;
 
   refType->refCount++;
 

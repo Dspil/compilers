@@ -87,10 +87,11 @@ typedef enum {                          /* Κατάσταση παραμέτρω
 } ParDef;
 
 struct Type_tag {
-    TypeKind kind;
+    TypeKind 	   kind;
     PclType        refType;              /* Τύπος αναφοράς            */
     RepInteger     size;                 /* Μέγεθος, αν είναι πίνακας */
     unsigned int   refCount;             /* Μετρητής αναφορών         */
+	bool           full;				 /* Πλήρης τύπος 			  */
 };
 
 
