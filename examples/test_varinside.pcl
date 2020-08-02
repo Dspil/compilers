@@ -1,0 +1,10 @@
+program varin;
+	var x: integer;
+
+	procedure l();
+		begin
+			x := 3;
+		end;
+	begin
+		l();
+	end.

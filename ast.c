@@ -821,9 +821,10 @@ int type_check(ast * t, PclType ftype) {
 	PassMode pass_type;
 
 	if (!t) {		//Should not be reached
-		printf("Uknown Error\n");
+		printf("Unknown Error\n");
 		return 1;
 	}
+	printf("%d %s\n", t->k, t->id);
 
 	switch (t->k) {
 
@@ -877,7 +878,7 @@ int type_check(ast * t, PclType ftype) {
 
 	case DISPOSE:
 	if (type_check(t->left, ftype)) return 1;
-	if (t->left->type->kind != TYPE_POINTER || !t->left->full) {
+	if (t->left->type->kind != TYPE_POINTER || !t->left->type->full) {
 	  printf("Type error: \"dispose\" argument must be pointer to full type!\n");
 	  return 1;
 	}
@@ -964,17 +965,25 @@ int type_check(ast * t, PclType ftype) {
 	  if (type_check(t->left, ftype)) return 1;
 	  head = t->left; //seq_formal
 	  while (head) {
+		  printf("edo\n");
 	    tp = head->left->right->type;
+		printf("edo1\n");
 	  	pass_type = head->left->k == VARREF ? PASS_BY_REFERENCE : PASS_BY_VALUE;
+		printf("edo2\n");
 	  	head1 = head->left->left;
+		printf("edo3\n");
 	  	while (head1) {
+			printf("edo4\n");
 	  	  newParameter(head1->id, tp, pass_type, t->sentry);
+		  printf("edo5\n");
 	  	  head1 = head1->right;
 	  	}
+		printf("edo6\n");
 	  	head = head->right;
+		printf("edo7\n");
 	  }
 	}
-	if (type_check(t->right, ftype)) {
+	if (t->right && type_check(t->right, ftype)) {
 	  return 1;
 	}
 	t->type = (t->k == FUNCTION) ? t->right->type : typeVoid;
@@ -1170,7 +1179,7 @@ int type_check(ast * t, PclType ftype) {
 	  printf("Error (call function): function %s undeclared!\n", t->id);
 	  return 1;
 	}
-	
+
 	p1 = p->u.eFunction.firstArgument;
 	head = t->left;
 	while (head) {
@@ -1244,22 +1253,22 @@ int type_check(ast * t, PclType ftype) {
 
 	case DISPOSE_ARRAY:
 	if (type_check(t->left, ftype)) return 1;
-	if (t->left->type->kind != TYPE_POINTER || t->left->type->refType->kind != TYPE_IARRAY) {
-		printf("Type Error: \"dispose []\" argument must be pointer to indefinite array!\n");
+	if (t->left->type->kind != TYPE_POINTER || t->left->type->refType->kind != TYPE_IARRAY || !t->left->type->refType->refType->full) {
+		printf("Type Error: \"dispose []\" argument must be pointer to indefinite array to full type!\n");
 		return 1;
 	}
 	break;
 
 	case ID:
-	if (!(p = lookupEntry(t->id, LOOKUP_ALL_SCOPES, true))){
+	if (!(p = lookupEntry(t->id, LOOKUP_ALL_SCOPES, true)) || (p->entryType != ENTRY_VARIABLE && p->entryType != ENTRY_PARAMETER)){
 	  printf("Error (id): variable %s does not exist!\n", t->id);
 	  return 1;
 	}
-	if (p->u.eVariable.type)
-	  t->type = p->u.eVariable.type;
-	else {
-	  printf("Error (id): variable %s does not exist!\n", t->id);
-	  return 1;
+	switch(p->entryType){
+		case ENTRY_VARIABLE:
+			t->type = p->u.eVariable.type;
+		default:
+			t->type = p->u.eParameter.type;
 	}
 	break;
 
@@ -1292,7 +1301,10 @@ int type_check(ast * t, PclType ftype) {
 	}
 	if (!equalType(t->left->type, t->right->type) &&
 		!(t->left->type->kind == TYPE_REAL && t->right->type->kind == TYPE_INTEGER) &&
-		!(t->left->type->kind == TYPE_POINTER && t->left->type->refType->kind == TYPE_IARRAY && t->right->type->kind == TYPE_POINTER && t->right->type->refType->kind == TYPE_ARRAY && equalType(t->left->type->refType->refType, t->right->type->refType->refType))) {
+		!(t->left->type->kind == TYPE_POINTER && t->left->type->refType->kind == TYPE_IARRAY &&
+		t->right->type->kind == TYPE_POINTER &&
+		t->right->type->refType->kind == TYPE_ARRAY &&
+		equalType(t->left->type->refType->refType, t->right->type->refType->refType))) {
 	  printf("Type error: \":=\" arguments must be of compatible type\n");
 	  return 1;
 	}
