@@ -18,50 +18,43 @@
  *  Εργαστήριο Τεχνολογίας Λογισμικού
  */
 
-
 /* ---------------------------------------------------------------------
    ---------------------------- Header files ---------------------------
    --------------------------------------------------------------------- */
 
+#include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
-#include <stdarg.h>
 
-#include "general.h"
-#include "error.h"
 #include "ast_symbol.h"
+#include "error.h"
+#include "general.h"
 
-#include <llvm/IR/Value.h>
 #include <llvm/IR/Instructions.h>
-
+#include <llvm/IR/Value.h>
 
 /* ---------------------------------------------------------------------
    ------------- Καθολικές μεταβλητές του πίνακα συμβόλων --------------
    --------------------------------------------------------------------- */
 
-Scope        * currentScope;           /* Τρέχουσα εμβέλεια              */
-unsigned int   quadNext;               /* Αριθμός επόμενης τετράδας      */
-unsigned int   tempNumber;             /* Αρίθμηση των temporaries       */
+Scope *currentScope;   /* Τρέχουσα εμβέλεια              */
+unsigned int quadNext; /* Αριθμός επόμενης τετράδας      */
+unsigned int tempNumber; /* Αρίθμηση των temporaries       */
 
-static unsigned int   hashTableSize;   /* Μέγεθος πίνακα κατακερματισμού */
-static SymbolEntry ** hashTable;       /* Πίνακας κατακερματισμού        */
+static unsigned int hashTableSize; /* Μέγεθος πίνακα κατακερματισμού */
+static SymbolEntry **hashTable; /* Πίνακας κατακερματισμού        */
 
-static struct Type_tag typeConst [] = {
-  { TYPE_VOID,    NULL, 0, 0, 1 },
-  { TYPE_INTEGER, NULL, 0, 0, 1 },
-  { TYPE_BOOLEAN, NULL, 0, 0, 1 },
-  { TYPE_CHAR,    NULL, 0, 0, 1 },
-  { TYPE_REAL,    NULL, 0, 0, 1 },
-  { TYPE_LABEL,   NULL, 0, 0, 1 }
-};
+static struct Type_tag typeConst[] = {
+    {TYPE_VOID, NULL, 0, 0, 1},    {TYPE_INTEGER, NULL, 0, 0, 1},
+    {TYPE_BOOLEAN, NULL, 0, 0, 1}, {TYPE_CHAR, NULL, 0, 0, 1},
+    {TYPE_REAL, NULL, 0, 0, 1},    {TYPE_LABEL, NULL, 0, 0, 1}};
 
-const PclType typeVoid    = &(typeConst[0]);
+const PclType typeVoid = &(typeConst[0]);
 const PclType typeInteger = &(typeConst[1]);
 const PclType typeBoolean = &(typeConst[2]);
-const PclType typeChar    = &(typeConst[3]);
-const PclType typeReal    = &(typeConst[4]);
-const PclType typeLabel   = &(typeConst[5]);
-
+const PclType typeChar = &(typeConst[3]);
+const PclType typeReal = &(typeConst[4]);
+const PclType typeLabel = &(typeConst[5]);
 
 /* ---------------------------------------------------------------------
    ------- Υλοποίηση βοηθητικών συναρτήσεων του πίνακα συμβόλων --------
@@ -69,16 +62,14 @@ const PclType typeLabel   = &(typeConst[5]);
 
 typedef unsigned long int HashType;
 
-static HashType PJW_hash (const char * key)
-{
+static HashType PJW_hash(const char *key) {
   /*
    *  P.J. Weinberger's hashing function. See also:
    *  Aho A.V., Sethi R. & Ullman J.D, "Compilers: Principles,
    *  Techniques and Tools", Addison Wesley, 1986, pp. 433-437.
    */
 
-  const HashType PJW_OVERFLOW =
-    (((HashType) 0xf) << (8 * sizeof(HashType) - 4));
+  const HashType PJW_OVERFLOW = (((HashType)0xf) << (8 * sizeof(HashType) - 4));
   const int PJW_SHIFT = (8 * (sizeof(HashType) - 1));
 
   HashType h, g;
@@ -93,8 +84,7 @@ static HashType PJW_hash (const char * key)
   return h;
 }
 
-void strAppendChar (char * buffer, RepChar c)
-{
+void strAppendChar(char *buffer, RepChar c) {
   switch (c) {
   case '\n':
     strcat(buffer, "\\n");
@@ -118,7 +108,7 @@ void strAppendChar (char * buffer, RepChar c)
     strcat(buffer, "\\\"");
     break;
   default: {
-    char s[] = { '\0', '\0' };
+    char s[] = {'\0', '\0'};
 
     *s = c;
     strcat(buffer, s);
@@ -126,40 +116,36 @@ void strAppendChar (char * buffer, RepChar c)
   }
 }
 
-void strAppendString (char * buffer, RepString str)
-{
-  const char * s;
+void strAppendString(char *buffer, RepString str) {
+  const char *s;
 
   for (s = str; *s != '\0'; s++)
     strAppendChar(buffer, *s);
 }
 
-
 /* ---------------------------------------------------------------------
    ------ Υλοποίηση των συναρτήσεων χειρισμού του πίνακα συμβόλων ------
    --------------------------------------------------------------------- */
 
-void initSymbolTable (unsigned int size)
-{
+void initSymbolTable(unsigned int size) {
   unsigned int i;
 
   /* Διάφορες αρχικοποιήσεις */
 
   currentScope = NULL;
-  quadNext     = 1;
-  tempNumber   = 1;
+  quadNext = 1;
+  tempNumber = 1;
 
   /* Αρχικοποίηση του πίνακα κατακερματισμού */
 
   hashTableSize = size;
-  hashTable = (SymbolEntry **) new1(size * sizeof(SymbolEntry *));
+  hashTable = (SymbolEntry **)new1(size * sizeof(SymbolEntry *));
 
   for (i = 0; i < size; i++)
     hashTable[i] = NULL;
 }
 
-void destroySymbolTable ()
-{
+void destroySymbolTable() {
   unsigned int i;
 
   /* Καταστροφή του πίνακα κατακερματισμού */
@@ -170,13 +156,12 @@ void destroySymbolTable ()
   delete1(hashTable);
 }
 
-void openScope ()
-{
-  Scope * newScope = (Scope *) new1(sizeof(Scope));
+void openScope() {
+  Scope *newScope = (Scope *)new1(sizeof(Scope));
 
   newScope->negOffset = START_NEGATIVE_OFFSET;
-  newScope->parent    = currentScope;
-  newScope->entries   = NULL;
+  newScope->parent = currentScope;
+  newScope->entries = NULL;
 
   if (currentScope == NULL)
     newScope->nestingLevel = 1;
@@ -186,13 +171,12 @@ void openScope ()
   currentScope = newScope;
 }
 
-void closeScope ()
-{
-  SymbolEntry * e = currentScope->entries;
-  Scope       * t = currentScope;
+void closeScope() {
+  SymbolEntry *e = currentScope->entries;
+  Scope *t = currentScope;
 
   while (e != NULL) {
-    SymbolEntry * next = e->nextInScope;
+    SymbolEntry *next = e->nextInScope;
 
     hashTable[e->hashValue] = e->nextHash;
     destroyEntry(e);
@@ -203,17 +187,15 @@ void closeScope ()
   delete1(t);
 }
 
-static void insertEntry (SymbolEntry * e)
-{
-  e->nextHash             = hashTable[e->hashValue];
+static void insertEntry(SymbolEntry *e) {
+  e->nextHash = hashTable[e->hashValue];
   hashTable[e->hashValue] = e;
-  e->nextInScope          = currentScope->entries;
-  currentScope->entries   = e;
+  e->nextInScope = currentScope->entries;
+  currentScope->entries = e;
 }
 
-static SymbolEntry * newEntry (const char * name)
-{
-  SymbolEntry * e;
+static SymbolEntry *newEntry(const char *name) {
+  SymbolEntry *e;
 
   /* Έλεγχος αν υπάρχει ήδη */
 
@@ -225,20 +207,19 @@ static SymbolEntry * newEntry (const char * name)
 
   /* Αρχικοποίηση όλων εκτός: entryType και u */
 
-  e = (SymbolEntry *) new1(sizeof(SymbolEntry));
-  e->id = (const char *) new1(strlen(name) + 1);
+  e = (SymbolEntry *)new1(sizeof(SymbolEntry));
+  e->id = (const char *)new1(strlen(name) + 1);
 
-  strcpy((char *) (e->id), name);
-  e->hashValue    = PJW_hash(name) % hashTableSize;
+  strcpy((char *)(e->id), name);
+  e->hashValue = PJW_hash(name) % hashTableSize;
   e->nestingLevel = currentScope->nestingLevel;
   e->alloca_inst = NULL;
   insertEntry(e);
   return e;
 }
 
-SymbolEntry * newVariable (const char * name, PclType type)
-{
-  SymbolEntry * e = newEntry(name);
+SymbolEntry *newVariable(const char *name, PclType type) {
+  SymbolEntry *e = newEntry(name);
 
   if (e != NULL) {
     e->entryType = ENTRY_VARIABLE;
@@ -246,23 +227,22 @@ SymbolEntry * newVariable (const char * name, PclType type)
     type->refCount++;
     currentScope->negOffset -= sizeOfType(type);
     e->u.eVariable.offset = currentScope->negOffset;
-	e->u.eVariable.block = NULL;
-	e->u.eVariable.goto_stack = std::vector<llvm::BasicBlock*>();
+    e->u.eVariable.block = NULL;
+    e->u.eVariable.goto_stack = std::vector<llvm::BasicBlock *>();
   }
   return e;
 }
 
-SymbolEntry * newConstant (const char * name, PclType type, ...)
-{
-  SymbolEntry * e;
+SymbolEntry *newConstant(const char *name, PclType type, ...) {
+  SymbolEntry *e;
   va_list ap;
 
   union {
     RepInteger vInteger;
     RepBoolean vBoolean;
-    RepChar    vChar;
-    RepReal    vReal;
-    RepString  vString;
+    RepChar vChar;
+    RepReal vReal;
+    RepString vString;
   } value;
 
   va_start(ap, type);
@@ -271,10 +251,10 @@ SymbolEntry * newConstant (const char * name, PclType type, ...)
     value.vInteger = va_arg(ap, RepInteger);
     break;
   case TYPE_BOOLEAN:
-    value.vBoolean = va_arg(ap, int);     /* RepBool is promoted */
+    value.vBoolean = va_arg(ap, int); /* RepBool is promoted */
     break;
   case TYPE_CHAR:
-    value.vChar = va_arg(ap, int);        /* RepChar is promoted */
+    value.vChar = va_arg(ap, int); /* RepChar is promoted */
     break;
   case TYPE_REAL:
     value.vReal = va_arg(ap, RepReal);
@@ -283,8 +263,8 @@ SymbolEntry * newConstant (const char * name, PclType type, ...)
     if (equalType(type->refType, typeChar)) {
       RepString str = va_arg(ap, RepString);
 
-      value.vString = (const char *) new1(strlen(str) + 1);
-      strcpy((char *) (value.vString), str);
+      value.vString = (const char *)new1(strlen(str) + 1);
+      strcpy((char *)(value.vString), str);
       break;
     }
   default:
@@ -301,9 +281,9 @@ SymbolEntry * newConstant (const char * name, PclType type, ...)
       break;
     case TYPE_BOOLEAN:
       if (value.vBoolean)
-	sprintf(buffer, "true");
+        sprintf(buffer, "true");
       else
-	sprintf(buffer, "false");
+        sprintf(buffer, "false");
       break;
     case TYPE_CHAR:
       strcpy(buffer, "'");
@@ -320,8 +300,7 @@ SymbolEntry * newConstant (const char * name, PclType type, ...)
     default:;
     }
     e = newEntry(buffer);
-  }
-  else
+  } else
     e = newEntry(name);
 
   if (e != NULL) {
@@ -349,9 +328,8 @@ SymbolEntry * newConstant (const char * name, PclType type, ...)
   return e;
 }
 
-SymbolEntry * newFunction (const char * name)
-{
-  SymbolEntry * e = lookupEntry(name, LOOKUP_CURRENT_SCOPE, false);
+SymbolEntry *newFunction(const char *name) {
+  SymbolEntry *e = lookupEntry(name, LOOKUP_CURRENT_SCOPE, false);
 
   if (e == NULL) {
     e = newEntry(name);
@@ -360,30 +338,27 @@ SymbolEntry * newFunction (const char * name)
       e->u.eFunction.isForward = false;
       e->u.eFunction.pardef = PARDEF_DEFINE;
       e->u.eFunction.firstArgument = e->u.eFunction.lastArgument = NULL;
-	  e->u.eFunction.forward_decl = NULL;
+      e->u.eFunction.forward_decl = NULL;
       e->u.eFunction.resultType = NULL;
-	  e->u.eFunction.llvmFunc = NULL;
-	  e->u.eFunction.extra_params = new std::set<std::string>;
+      e->u.eFunction.llvmFunc = NULL;
+      e->u.eFunction.extra_params = new std::set<std::string>;
     }
     return e;
-  }
-  else if (e->entryType == ENTRY_FUNCTION && e->u.eFunction.isForward) {
+  } else if (e->entryType == ENTRY_FUNCTION && e->u.eFunction.isForward) {
     e->u.eFunction.isForward = false;
     e->u.eFunction.pardef = PARDEF_CHECK;
     e->u.eFunction.lastArgument = NULL;
-	e->u.eFunction.extra_params = new std::set<std::string>;
+    e->u.eFunction.extra_params = new std::set<std::string>;
     return e;
-  }
-  else {
+  } else {
     error("Duplicate identifier: %s", name);
     return NULL;
   }
 }
 
-SymbolEntry * newParameter (const char * name, PclType type,
-                            PassMode mode, SymbolEntry * f)
-{
-  SymbolEntry * e;
+SymbolEntry *newParameter(const char *name, PclType type, PassMode mode,
+                          SymbolEntry *f) {
+  SymbolEntry *e;
 
   if (f->entryType != ENTRY_FUNCTION)
     internal("Cannot add a parameter to a non-function");
@@ -412,16 +387,20 @@ SymbolEntry * newParameter (const char * name, PclType type,
       e = e->u.eParameter.next;
     if (e == NULL)
       error("More parameters than expected in redeclaration "
-	    "of function %s", f->id);
+            "of function %s",
+            f->id);
     else if (!equalType(e->u.eParameter.type, type))
       error("Parameter type mismatch in redeclaration "
-	    "of function %s", f->id);
+            "of function %s",
+            f->id);
     else if (e->u.eParameter.mode != mode)
       error("Parameter passing mode mismatch in redeclaration "
-	    "of function %s", f->id);
+            "of function %s",
+            f->id);
     else if (strcmp(e->id, name) != 0)
       error("Parameter name mismatch in redeclaration "
-	    "of function %s", f->id);
+            "of function %s",
+            f->id);
     else
       insertEntry(e);
     f->u.eFunction.lastArgument = e;
@@ -432,8 +411,7 @@ SymbolEntry * newParameter (const char * name, PclType type,
   return NULL;
 }
 
-static unsigned int fixOffset (SymbolEntry * args)
-{
+static unsigned int fixOffset(SymbolEntry *args) {
   if (args == NULL)
     return 0;
   else {
@@ -447,15 +425,13 @@ static unsigned int fixOffset (SymbolEntry * args)
   }
 }
 
-void forwardFunction (SymbolEntry * f)
-{
+void forwardFunction(SymbolEntry *f) {
   if (f->entryType != ENTRY_FUNCTION)
     internal("Cannot make a non-function forward");
   f->u.eFunction.isForward = true;
 }
 
-void endFunctionHeader (SymbolEntry * f, PclType type)
-{
+void endFunctionHeader(SymbolEntry *f, PclType type) {
   if (f->entryType != ENTRY_FUNCTION)
     internal("Cannot end parameters in a non-function");
   switch (f->u.eFunction.pardef) {
@@ -469,23 +445,22 @@ void endFunctionHeader (SymbolEntry * f, PclType type)
     break;
   case PARDEF_CHECK:
     if ((f->u.eFunction.lastArgument != NULL &&
-	 f->u.eFunction.lastArgument->u.eParameter.next != NULL) ||
-	(f->u.eFunction.lastArgument == NULL &&
-	 f->u.eFunction.firstArgument != NULL))
+         f->u.eFunction.lastArgument->u.eParameter.next != NULL) ||
+        (f->u.eFunction.lastArgument == NULL &&
+         f->u.eFunction.firstArgument != NULL))
       error("Fewer parameters than expected in redeclaration "
-	    "of function %s", f->id);
+            "of function %s",
+            f->id);
     if (!equalType(f->u.eFunction.resultType, type))
-      error("Result type mismatch in redeclaration of function %s",
-	    f->id);
+      error("Result type mismatch in redeclaration of function %s", f->id);
     break;
   }
   f->u.eFunction.pardef = PARDEF_COMPLETE;
 }
 
-SymbolEntry * newTemporary (PclType type)
-{
+SymbolEntry *newTemporary(PclType type) {
   char buffer[10];
-  SymbolEntry * e;
+  SymbolEntry *e;
 
   sprintf(buffer, "$%d", tempNumber);
   e = newEntry(buffer);
@@ -501,9 +476,8 @@ SymbolEntry * newTemporary (PclType type)
   return e;
 }
 
-void destroyEntry (SymbolEntry * e)
-{
-  SymbolEntry * args;
+void destroyEntry(SymbolEntry *e) {
+  SymbolEntry *args;
 
   switch (e->entryType) {
   case ENTRY_VARIABLE:
@@ -511,16 +485,16 @@ void destroyEntry (SymbolEntry * e)
     break;
   case ENTRY_CONSTANT:
     if (e->u.eConstant.type->kind == TYPE_ARRAY)
-      delete1((char *) (e->u.eConstant.value.vString));
+      delete1((char *)(e->u.eConstant.value.vString));
     destroyType(e->u.eConstant.type);
     break;
   case ENTRY_FUNCTION:
     args = e->u.eFunction.firstArgument;
     while (args != NULL) {
-      SymbolEntry * p = args;
+      SymbolEntry *p = args;
 
       destroyType(args->u.eParameter.type);
-      delete1((char *) (args->id));
+      delete1((char *)(args->id));
       args = args->u.eParameter.next;
       delete1(p);
     }
@@ -533,29 +507,28 @@ void destroyEntry (SymbolEntry * e)
     destroyType(e->u.eTemporary.type);
     break;
   }
-  delete1((char *) (e->id));
+  delete1((char *)(e->id));
   delete1(e);
 }
 
-SymbolEntry * lookupEntry (const char * name, LookupType type, bool err)
-{
-  unsigned int  hashValue = PJW_hash(name) % hashTableSize;
-  SymbolEntry * e         = hashTable[hashValue];
+SymbolEntry *lookupEntry(const char *name, LookupType type, bool err) {
+  unsigned int hashValue = PJW_hash(name) % hashTableSize;
+  SymbolEntry *e = hashTable[hashValue];
 
   switch (type) {
   case LOOKUP_CURRENT_SCOPE:
     while (e != NULL && e->nestingLevel == currentScope->nestingLevel)
       if (strcmp(e->id, name) == 0)
-	return e;
+        return e;
       else
-	e = e->nextHash;
+        e = e->nextHash;
     break;
   case LOOKUP_ALL_SCOPES:
     while (e != NULL)
       if (strcmp(e->id, name) == 0)
-	return e;
+        return e;
       else
-	e = e->nextHash;
+        e = e->nextHash;
     break;
   }
 
@@ -564,13 +537,12 @@ SymbolEntry * lookupEntry (const char * name, LookupType type, bool err)
   return NULL;
 }
 
-PclType typeArray (RepInteger size, PclType refType)
-{
-  PclType n = (PclType) new1(sizeof(struct Type_tag));
+PclType typeArray(RepInteger size, PclType refType) {
+  PclType n = (PclType)new1(sizeof(struct Type_tag));
 
-  n->kind     = TYPE_ARRAY;
-  n->refType  = refType;
-  n->size     = size;
+  n->kind = TYPE_ARRAY;
+  n->refType = refType;
+  n->size = size;
   n->refCount = 1;
   n->full = n->refType->full;
 
@@ -579,12 +551,11 @@ PclType typeArray (RepInteger size, PclType refType)
   return n;
 }
 
-PclType typeIArray (PclType refType)
-{
-  PclType n = (PclType) new1(sizeof(struct Type_tag));
+PclType typeIArray(PclType refType) {
+  PclType n = (PclType)new1(sizeof(struct Type_tag));
 
-  n->kind     = TYPE_IARRAY;
-  n->refType  = refType;
+  n->kind = TYPE_IARRAY;
+  n->refType = refType;
   n->refCount = 1;
   n->size = 0;
   n->full = 0;
@@ -594,12 +565,11 @@ PclType typeIArray (PclType refType)
   return n;
 }
 
-PclType typePointer (PclType refType)
-{
-  PclType n = (PclType) new1(sizeof(struct Type_tag));
+PclType typePointer(PclType refType) {
+  PclType n = (PclType)new1(sizeof(struct Type_tag));
 
-  n->kind     = TYPE_POINTER;
-  n->refType  = refType;
+  n->kind = TYPE_POINTER;
+  n->refType = refType;
   n->refCount = 1;
   n->full = n->refType->full;
 
@@ -608,23 +578,22 @@ PclType typePointer (PclType refType)
   return n;
 }
 
-void destroyType (PclType type)
-{
-	if(!type) return;
-	switch (type->kind) {
-	case TYPE_ARRAY:
-	case TYPE_IARRAY:
-	case TYPE_POINTER:
-	if (--(type->refCount) == 0) {
-		destroyType(type->refType);
-		delete1(type);
-	}
-	default:;
-	}
+void destroyType(PclType type) {
+  if (!type)
+    return;
+  switch (type->kind) {
+  case TYPE_ARRAY:
+  case TYPE_IARRAY:
+  case TYPE_POINTER:
+    if (--(type->refCount) == 0) {
+      destroyType(type->refType);
+      delete1(type);
+    }
+  default:;
+  }
 }
 
-unsigned int sizeOfType (PclType type)
-{
+unsigned int sizeOfType(PclType type) {
   switch (type->kind) {
   case TYPE_VOID:
     internal("Type void has no size");
@@ -645,8 +614,7 @@ unsigned int sizeOfType (PclType type)
   return 0;
 }
 
-bool equalType (PclType type1, PclType type2)
-{
+bool equalType(PclType type1, PclType type2) {
   if (type1->kind != type2->kind)
     return false;
   switch (type1->kind) {
@@ -661,8 +629,7 @@ bool equalType (PclType type1, PclType type2)
   return true;
 }
 
-void printType (PclType type)
-{
+void printType(PclType type) {
   if (type == NULL) {
     printf("<undefined>");
     return;
@@ -702,18 +669,15 @@ void printType (PclType type)
   }
 }
 
-void printMode (PassMode mode)
-{
+void printMode(PassMode mode) {
   if (mode == PASS_BY_REFERENCE)
     printf("var ");
 }
 
-
-void printSymbolTable ()
-{
-  Scope       * scp;
-  SymbolEntry * e;
-  SymbolEntry * args;
+void printSymbolTable() {
+  Scope *scp;
+  SymbolEntry *e;
+  SymbolEntry *args;
 
   scp = currentScope;
   if (scp == NULL)
@@ -723,41 +687,41 @@ void printSymbolTable ()
       printf("scope: ");
       e = scp->entries;
       while (e != NULL) {
-	if (e->entryType == ENTRY_TEMPORARY)
-	  printf("$%d", e->u.eTemporary.number);
-	else
-	  printf("%s", e->id);
-	switch (e->entryType) {
-	case ENTRY_FUNCTION:
-	  printf("(");
-	  args = e->u.eFunction.firstArgument;
-	  while (args != NULL) {
-	    printMode(args->u.eParameter.mode);
-	    printf("%s : ", args->id);
-	    printType(args->u.eParameter.type);
-	    args = args->u.eParameter.next;
-	    if (args != NULL)
-	      printf("; ");
-	  }
-	  printf(") : ");
-	  printType(e->u.eFunction.resultType);
-	  break;
+        if (e->entryType == ENTRY_TEMPORARY)
+          printf("$%d", e->u.eTemporary.number);
+        else
+          printf("%s", e->id);
+        switch (e->entryType) {
+        case ENTRY_FUNCTION:
+          printf("(");
+          args = e->u.eFunction.firstArgument;
+          while (args != NULL) {
+            printMode(args->u.eParameter.mode);
+            printf("%s : ", args->id);
+            printType(args->u.eParameter.type);
+            args = args->u.eParameter.next;
+            if (args != NULL)
+              printf("; ");
+          }
+          printf(") : ");
+          printType(e->u.eFunction.resultType);
+          break;
 #ifdef SHOW_OFFSETS
-	case ENTRY_VARIABLE:
-	  printf("[%d]", e->u.eVariable.offset);
-	  break;
-	case ENTRY_PARAMETER:
-	  printf("[%d]", e->u.eParameter.offset);
-	  break;
-	case ENTRY_TEMPORARY:
-	  printf("[%d]", e->u.eTemporary.offset);
-	  break;
+        case ENTRY_VARIABLE:
+          printf("[%d]", e->u.eVariable.offset);
+          break;
+        case ENTRY_PARAMETER:
+          printf("[%d]", e->u.eParameter.offset);
+          break;
+        case ENTRY_TEMPORARY:
+          printf("[%d]", e->u.eTemporary.offset);
+          break;
 #endif
-	default:;
-	}
-	e = e->nextInScope;
-	if (e != NULL)
-	  printf(", ");
+        default:;
+        }
+        e = e->nextInScope;
+        if (e != NULL)
+          printf(", ");
       }
       scp = scp->parent;
       printf("\n");
