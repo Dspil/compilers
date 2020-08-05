@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "ast.h"
-#include "symbol.h"
+#include "ast_symbol.h"
 #include "code_gen.hpp"
 
 #include <llvm/IR/IRBuilder.h>
@@ -387,7 +386,7 @@ Value* code_gen(ast * t, Function* cur_func) {
 	AllocaInst *Alloca;
 
 	//printf("%d %s\n", t->k, t->id);
-	//printSymbolTable();
+
     if (!t) {
       return NULL;
     }
@@ -509,7 +508,6 @@ Value* code_gen(ast * t, Function* cur_func) {
     case NEW: {
 		//printf("in new\n");
 		p = lookupEntry("cMalloc", LOOKUP_ALL_SCOPES, false);
-		if(!p) printf("oups\n");
 		r = lvalue_pointer(t->right, cur_func);
 		if(t->left) {
 			//printf("in new1\n");
@@ -612,7 +610,7 @@ Value* code_gen(ast * t, Function* cur_func) {
 	    TheFPM->add(createGVNPass());
 	    TheFPM->add(createCFGSimplificationPass());
 	    TheFPM->doInitialization();
-		//TheFPM->run(*f);
+		TheFPM->run(*f);
 		//printf("ran\n");
 		return NULL;
 	}
@@ -622,7 +620,8 @@ Value* code_gen(ast * t, Function* cur_func) {
 	}
 
     case RESULT: {
-      return NULL;
+		p = lookupEntry("result", LOOKUP_CURRENT_SCOPE, false);
+		return Builder.CreateLoad(p->alloca_inst);
   }
 
     case VAR:{
@@ -883,13 +882,14 @@ Value* code_gen(ast * t, Function* cur_func) {
 				l = lvalue_pointer(head->left, cur_func);
 				//printf("megethos2 %d\n", p1->u.eParameter.type->size);
 				if(l->getType() != find_llvm_type(p1->u.eParameter.type)->getPointerTo()){
-					//printf("edo skatoules\n");
 					l = Builder.CreateBitCast(l, find_llvm_type(p1->u.eParameter.type)->getPointerTo());
-					//printf("edo skatoules\n");
 				}
 			}
 			else {
 				l = code_gen(head->left, cur_func);
+				if (head->left->type->kind == TYPE_INTEGER && p1->u.eParameter.type->kind == TYPE_REAL) {
+					l = Builder.CreateCast(Instruction::SIToFP, l, f64);
+				}
 			}
 
 			params.push_back(l);
@@ -949,13 +949,11 @@ Value* code_gen(ast * t, Function* cur_func) {
 			p = t->left->sentry;
 		}
 		else prepareFunctionSymbolTable(t->left);
-		//printf("edo einai\n");
 		rBB = &cur_func->getBasicBlockList().back();
 		cur_func = p->u.eFunction.llvmFunc;
 		lBB = BasicBlock::Create(TheContext, t->left->id, cur_func);
 		Builder.SetInsertPoint(lBB);
 		p1 = p->u.eFunction.firstArgument;
-		//printf("prin apo loop\n");
 		for (auto &Arg : cur_func->args()) {
   			Arg.setName(p1->id);
 			if(p1->u.eParameter.mode == PASS_BY_REFERENCE) {
@@ -964,11 +962,9 @@ Value* code_gen(ast * t, Function* cur_func) {
 			else {
 				Alloca = Builder.CreateAlloca(find_llvm_type(p1->u.eParameter.type), 0, Arg.getName());
 			}
-			//printf("gamietai\n");
 			p1->alloca_inst = Alloca;
-			if(Arg.getType() == ArrayType::get(i8, 0)->getPointerTo()->getPointerTo()) printf("ola sosta\n");
+			//if(Arg.getType() == ArrayType::get(i8, 0)->getPointerTo()->getPointerTo()) printf("ola sosta\n");
 			Builder.CreateStore(&Arg, Alloca);
-			//printf("eftase\n");
 			p1 = p1->u.eParameter.next;
 		}
 		if (t->left->k == FUNCTION) {
@@ -984,7 +980,6 @@ Value* code_gen(ast * t, Function* cur_func) {
 			Builder.CreateRet(Builder.CreateLoad(lookupEntry("result", LOOKUP_CURRENT_SCOPE, false)->alloca_inst));
 		Builder.SetInsertPoint(rBB);
 		closeScope();
-		//printf("ola kala\n");
 		return NULL;
 	}
 

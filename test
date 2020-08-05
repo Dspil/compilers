@@ -1,0 +1,70 @@
+; ModuleID = 'pcl program'
+source_filename = "pcl program"
+
+@x = common global i32, align 4
+
+declare void @writeInteger(i32)
+
+declare void @writeBoolean(i1)
+
+declare void @writeChar(i8)
+
+declare void @writeReal(double)
+
+declare void @writeString([0 x i8]*)
+
+declare i32 @abs(i32)
+
+declare double @fabs(double)
+
+declare double @sqrt(double)
+
+declare double @sin(double)
+
+declare double @cos(double)
+
+declare double @tan(double)
+
+declare double @arctan(double)
+
+declare double @exp(double)
+
+declare double @ln(double)
+
+declare double @pi()
+
+declare i32 @trunc2(double)
+
+declare i32 @round2(double)
+
+declare i32 @ord(i8)
+
+declare i8 @chr(i32)
+
+declare i32 @readInteger()
+
+declare i1 @readBoolean()
+
+declare i8 @readChar()
+
+declare double @readReal()
+
+declare void @readString(i32, [0 x i8]*)
+
+declare i32 @cMalloc(i64)
+
+define i32 @main() {
+entry:
+  store i32 2, i32* @x, align 4
+  call void @l()
+  %0 = load i32, i32* @x, align 4
+  call void @writeInteger(i32 %0)
+  call void @writeChar(i8 10)
+  ret i32 0
+}
+
+define internal void @l() {
+l:
+  store i32 3, i32* @x, align 4
+  ret void
+}

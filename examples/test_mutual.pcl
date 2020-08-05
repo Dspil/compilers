@@ -1,0 +1,24 @@
+program mut;
+	var x:integer;
+
+	forward function fib(n:integer) : integer;
+
+	function fib2(n:integer) : integer;
+		begin
+			if n < 3 then
+				result := 1
+			else result := fib(n - 1) + fib(n - 2) + x;
+		end;
+
+	function fib(n:integer) :integer;
+		begin
+			if n < 3 then
+				result := 1
+			else result := fib2(n - 1) + fib2(n - 2)
+		end;
+
+	begin
+		x := 1;
+		writeInteger(fib(10));
+		writeChar('\n');
+	end.

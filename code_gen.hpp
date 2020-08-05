@@ -2,8 +2,7 @@
 #define __CODE_GEN_H__
 #include <stdio.h>
 #include <stdlib.h>
-#include "ast.h"
-#include "symbol.h"
+#include "ast_symbol.h"
 #include <llvm/IR/Value.h>
 
 using namespace llvm;

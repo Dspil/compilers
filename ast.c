@@ -1,8 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "ast.h"
-#include "symbol.h"
+#include "ast_symbol.h"
 
 char make_char(char* s) {
 	if (strlen(s) == 3) {
@@ -259,6 +258,7 @@ void print_ast(ast * t) {
   case DISPOSE:
     printf("DISPOSE(");
     print_ast(t->left);
+	printf(")");
     break;
 
   case DIV:
@@ -338,6 +338,17 @@ void print_ast(ast * t) {
     printf(")");
     break;
 
+	case FUNCTION:
+      printf("FUNCTION(%s", t->id);
+      if (t->left) {
+        printf(", ");
+        print_ast(t->left);
+      }
+      printf("):");
+	  print_ast(t->right);
+	  printf(";");
+      break;
+
   case PROGRAM:
     printf("PROGRAM(%s, ", t->id);
     print_ast(t->left);
@@ -363,7 +374,7 @@ void print_ast(ast * t) {
   case VAR:
     printf("BY_VALUE(");
     print_ast(t->left);
-    printf(", ");
+    printf(": ");
     print_ast(t->right);
     printf(")");
     break;
@@ -652,8 +663,13 @@ void print_ast(ast * t) {
     print_ast(t->right);
     printf(")");
     break;
+
   default:;
-  }
+}
+}
+
+bool is_lvalue(ast * t) {
+	return (t->k == ID || t->k == INDEX || t->k == DEREF || t->k == STR_CONST);
 }
 
 void define_builtins() {
@@ -808,10 +824,15 @@ void define_builtins() {
   closeScope();
 }
 
-bool check_compatible(PclType def_t, PclType pass_t) {
+bool check_compatible_array(PclType def_t, PclType pass_t) {
 	if (equalType(def_t, pass_t)) return true;
-	if (def_t->kind == TYPE_IARRAY && pass_t->kind == TYPE_ARRAY) return check_compatible(def_t->refType, pass_t->refType);
+	if (def_t->kind == TYPE_IARRAY && pass_t->kind == TYPE_ARRAY) return check_compatible_array(def_t->refType, pass_t->refType);
 	return false;
+}
+
+bool check_compatible(PclType def_t, PclType pass_t) {
+	if (pass_t->kind == TYPE_INTEGER && def_t->kind == TYPE_REAL) return 1;
+	return check_compatible_array(def_t, pass_t);
 }
 
 int type_check(ast * t, PclType ftype) {
@@ -820,11 +841,11 @@ int type_check(ast * t, PclType ftype) {
 	PclType tp;
 	PassMode pass_type;
 
+	//printf("%d\n", t->k);
 	if (!t) {		//Should not be reached
 		printf("Unknown Error\n");
 		return 1;
 	}
-	printf("%d %s\n", t->k, t->id);
 
 	switch (t->k) {
 
@@ -843,11 +864,19 @@ int type_check(ast * t, PclType ftype) {
 
 	case IARRAY:
 	if (type_check(t->left, ftype)) return 1;
+	if(!t->left->type->full) {
+		printf("Type error: array must reference a full type!\n");
+	  	return 1;
+	}
 	t->type = typeIArray(t->left->type);
 	break;
 
 	case ARRAY:
 	if (type_check(t->left, ftype)) return 1;
+	if(!t->left->type->full) {
+		printf("Type error: array must reference a full type!\n");
+	  	return 1;
+	}
 	if (t->size > 0) t->type = typeArray(t->size, t->left->type);
 	else {
 	  printf("Type error: size of array must be positive!\n");
@@ -862,7 +891,9 @@ int type_check(ast * t, PclType ftype) {
 	break;
 
 	case BODY:
-	if (t->left && type_check(t->left, ftype)) return 1;
+	if (t->left && type_check(t->left, ftype)){
+		return 1;
+	}
 	if (type_check(t->right, ftype)) return 1;
 	break;
 
@@ -961,26 +992,22 @@ int type_check(ast * t, PclType ftype) {
 	case FUNCTION:
 	t->sentry = newFunction(t->id);
 	openScope();
-	if (t->left) { //t->left : seq_formal (parameters)
+	if (t->left) {
 	  if (type_check(t->left, ftype)) return 1;
 	  head = t->left; //seq_formal
 	  while (head) {
-		  printf("edo\n");
 	    tp = head->left->right->type;
-		printf("edo1\n");
 	  	pass_type = head->left->k == VARREF ? PASS_BY_REFERENCE : PASS_BY_VALUE;
-		printf("edo2\n");
+		if (pass_type == PASS_BY_VALUE && tp->kind != TYPE_ARRAY && tp->kind != TYPE_IARRAY) {
+			printf("Type Error: can not pass array by value in function %s\n", t->id);
+			return 1;
+		}
 	  	head1 = head->left->left;
-		printf("edo3\n");
 	  	while (head1) {
-			printf("edo4\n");
 	  	  newParameter(head1->id, tp, pass_type, t->sentry);
-		  printf("edo5\n");
 	  	  head1 = head1->right;
 	  	}
-		printf("edo6\n");
 	  	head = head->right;
-		printf("edo7\n");
 	  }
 	}
 	if (t->right && type_check(t->right, ftype)) {
@@ -993,9 +1020,7 @@ int type_check(ast * t, PclType ftype) {
 	case PROGRAM:
 	openScope();
 	define_builtins();
-	if (type_check(t->left, ftype)) {
-	  return 1;
-	}
+	if (type_check(t->left, ftype)) return 1;
 	closeScope();
 	break;
 
@@ -1179,7 +1204,6 @@ int type_check(ast * t, PclType ftype) {
 	  printf("Error (call function): function %s undeclared!\n", t->id);
 	  return 1;
 	}
-
 	p1 = p->u.eFunction.firstArgument;
 	head = t->left;
 	while (head) {
@@ -1187,10 +1211,26 @@ int type_check(ast * t, PclType ftype) {
 	    printf("Error (call function): more arguments given to function %s than needed!\n", t->id);
 	    return 1;
 	  }
-	  if (!check_compatible(p1->u.eParameter.type, head->left->type)){
-	       printf("Error (call function): argument type mismatch to function %s!\n", t->id);
-	       return 1;
-	  }
+	  if (p1->u.eParameter.mode == PASS_BY_VALUE) {
+		  if (!equalType(p1->u.eParameter.type, head->left->type) &&
+	  			!(p1->u.eParameter.type->kind == TYPE_REAL && head->left->type->kind == TYPE_INTEGER) &&
+	  			!(p1->u.eParameter.type->kind == TYPE_POINTER && p1->u.eParameter.type->refType->kind == TYPE_IARRAY &&
+	  			head->left->type->kind == TYPE_POINTER &&
+	  			head->left->type->refType->kind == TYPE_ARRAY &&
+	  			equalType(p1->u.eParameter.type->refType->refType, head->left->type->refType->refType))) {
+					printf("Error (call function): argument type mismatch to function %s!\n", t->id);
+				}
+			}
+		else {
+			if (!is_lvalue(head->left)) {
+				printf("Error (call function): can't pass non lvalue by reference at function %s!\n", t->id);
+				return 1;
+			}
+	  		if (!check_compatible(p1->u.eParameter.type, head->left->type)){
+	       		printf("Error (call function): argument type mismatch to function %s!\n", t->id);
+	       		return 1;
+	  		}
+  		}
 	  head = head->right;
 	  p1 = p1->u.eParameter.next;
 	}
@@ -1204,7 +1244,9 @@ int type_check(ast * t, PclType ftype) {
 	case SEQ_LOCAL:
 	head = t;
 	while (head) {
-	  if (type_check(head->left, ftype)) return 1;
+	  if (type_check(head->left, ftype)){
+		  return 1;
+	  }
 	  head = head->right;
 	}
 	break;
@@ -1232,7 +1274,9 @@ int type_check(ast * t, PclType ftype) {
 	break;
 
 	case DEFINITION:
-	if (type_check(t->left, ftype) || type_check(t->right, t->left->type)) return 1;
+	if (type_check(t->left, ftype) || type_check(t->right, t->left->type)){
+		return 1;
+	}
 	if (t->left->k == FUNCTION && !lookupEntry("result", LOOKUP_CURRENT_SCOPE, false)) {
 	  printf("Error (function %s): Functions must assign to result!\n", t->left->id);
 	}
@@ -1248,7 +1292,9 @@ int type_check(ast * t, PclType ftype) {
 	break;
 
 	case VARREF:
-	if (type_check(t->right, ftype)) return 1;
+	if (type_check(t->right, ftype)){
+		return 1;
+	}
 	break;
 
 	case DISPOSE_ARRAY:
@@ -1267,6 +1313,7 @@ int type_check(ast * t, PclType ftype) {
 	switch(p->entryType){
 		case ENTRY_VARIABLE:
 			t->type = p->u.eVariable.type;
+			break;
 		default:
 			t->type = p->u.eParameter.type;
 	}

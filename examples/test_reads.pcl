@@ -1,0 +1,7 @@
+program test_read;
+	var x : array [100] of char;
+
+	begin
+		readString(5, x);
+		writeString(x);
+	end.

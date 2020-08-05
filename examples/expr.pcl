@@ -1,6 +1,0 @@
-program expr;
-	var x : integer;
-begin
-	writeString := writeString;
-	x := writeString + writeInteger(4);
-end.

@@ -15,7 +15,7 @@ CFLAGS=-Wall
 
 default: pcl
 
-pcl: ast.o code_gen.o parser.o lexer.o symbol.o error.o general.o
+pcl: ast.o make_params.o code_gen.o parser.o lexer.o symbol.o error.o general.o
 	$(CXX) $(CXXFLAGS) -o pcl $^ $(LDFLAGS)
 
 general.o: general.c general.h error.h
@@ -40,7 +40,10 @@ parser.o: parser.cpp
 ast.o: ast.c
 	$(CXX) $(CXXFLAGS) -c ast.c -o ast.o
 
-code_gen.o: code_gen.cpp code_gen.hpp ast.h symbol.h
+make_params.o: make_params.cpp
+	$(CXX) $(CXXFLAGS) -c make_params.cpp -o make_params.o
+
+code_gen.o: code_gen.cpp code_gen.hpp ast_symbol.h
 	$(CXX) $(CXXFLAGS) -c code_gen.cpp -o code_gen.o
 
 clean:

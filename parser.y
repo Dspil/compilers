@@ -2,8 +2,8 @@
 #include "yyfunc.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include "ast.h"
-#include "symbol.h"
+#include "ast_symbol.h"
+#include "make_params.hpp"
 #include "code_gen.hpp"
 
 ast * t;
@@ -274,6 +274,12 @@ int main() {
 		printf("Type Checking Failed!\n");
 		return 1;
 	}
+	printf("Type Checking Successful!\n");
+	while (make_parameters(t)) {
+		//printf("Finished a pass\n");
+		//print_ast(t);
+	}
+	//printf("Making of parameters successful!\n");
 	generate_code(t);
   }
   return result;

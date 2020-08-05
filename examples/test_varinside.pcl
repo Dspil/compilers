@@ -1,10 +1,16 @@
 program varin;
-	var x: integer;
+	var x, y: integer;
 
-	procedure l();
+	procedure l(y : integer);
 		begin
-			x := 3;
+			x := y + 3;
 		end;
 	begin
-		l();
+		x := 2;
+		y := 3;
+		writeInteger(x);
+		writeChar('\n');
+		l(4);
+		writeInteger(x);
+		writeChar('\n');
 	end.

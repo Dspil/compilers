@@ -11,9 +11,7 @@ main:                                   # @main
 	movl	$5, %edi
 	callq	cMalloc
 	movl	%eax, %edi
-	movq	%rdi, (%rsp)
 	callq	free
-	movq	$0, (%rsp)
 	xorl	%eax, %eax
 	popq	%rcx
 	.cfi_def_cfa_offset 8

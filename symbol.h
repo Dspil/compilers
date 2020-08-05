@@ -19,8 +19,8 @@
  */
 
 
-#ifndef __SYMBOL_H__
-#define __SYMBOL_H__
+#ifndef __AST_SYMBOL_H__
+#define __AST_SYMBOL_H__
 
 
 /* ---------------------------------------------------------------------
@@ -31,6 +31,7 @@
 #include <stdbool.h>
 #include <llvm/IR/Value.h>
 #include <llvm/IR/Instructions.h>
+#include <ast.h>
 
 
 /*
@@ -153,8 +154,10 @@ struct SymbolEntry_tag {
          SymbolEntry * lastArgument;          /* Τελευταία παράμετρος  */
          PclType       resultType;            /* Τύπος αποτελέσματος   */
          ParDef pardef;
-         int           firstQuad;             /* Αρχική τετράδα        */
-		 llvm::Function*     llvmFunc;        /* Πεδίο για χρήση μόνο στο llvm */
+         int           firstQuad;                   /* Αρχική τετράδα        */
+		 ast *         forward_decl;           /*Η θέση του forward στο ast */
+		 llvm::Function*     llvmFunc;              /* Πεδίο για χρήση μόνο στο llvm */
+		 std::set<std::string> extra_params;   /* Εξτρα παράμετροι      */
       } eFunction;
 
       struct {                                /****** Παράμετρος *******/
@@ -165,7 +168,7 @@ struct SymbolEntry_tag {
       } eParameter;
 
       struct {                                /** Προσωρινή μεταβλητή **/
-         PclType          type;                  /* Τύπος                 */
+         PclType          type;               /* Τύπος                 */
          int           offset;                /* Offset στο Ε.Δ.       */
          int           number;
       } eTemporary;

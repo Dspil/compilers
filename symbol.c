@@ -29,7 +29,7 @@
 
 #include "general.h"
 #include "error.h"
-#include "symbol.h"
+#include "ast_symbol.h"
 
 #include <llvm/IR/Value.h>
 #include <llvm/IR/Instructions.h>
@@ -167,7 +167,6 @@ void destroySymbolTable ()
   for (i = 0; i < hashTableSize; i++)
     if (hashTable[i] != NULL)
       destroyEntry(hashTable[i]);
-
   delete1(hashTable);
 }
 
@@ -361,8 +360,10 @@ SymbolEntry * newFunction (const char * name)
       e->u.eFunction.isForward = false;
       e->u.eFunction.pardef = PARDEF_DEFINE;
       e->u.eFunction.firstArgument = e->u.eFunction.lastArgument = NULL;
+	  e->u.eFunction.forward_decl = NULL;
       e->u.eFunction.resultType = NULL;
 	  e->u.eFunction.llvmFunc = NULL;
+	  e->u.eFunction.extra_params = new std::set<std::string>;
     }
     return e;
   }
@@ -370,7 +371,7 @@ SymbolEntry * newFunction (const char * name)
     e->u.eFunction.isForward = false;
     e->u.eFunction.pardef = PARDEF_CHECK;
     e->u.eFunction.lastArgument = NULL;
-	e->u.eFunction.llvmFunc = NULL;
+	e->u.eFunction.extra_params = new std::set<std::string>;
     return e;
   }
   else {
@@ -609,16 +610,17 @@ PclType typePointer (PclType refType)
 
 void destroyType (PclType type)
 {
-  switch (type->kind) {
-  case TYPE_ARRAY:
-  case TYPE_IARRAY:
-  case TYPE_POINTER:
-    if (--(type->refCount) == 0) {
-      destroyType(type->refType);
-      delete1(type);
-    }
-  default:;
-  }
+	if(!type) return;
+	switch (type->kind) {
+	case TYPE_ARRAY:
+	case TYPE_IARRAY:
+	case TYPE_POINTER:
+	if (--(type->refCount) == 0) {
+		destroyType(type->refType);
+		delete1(type);
+	}
+	default:;
+	}
 }
 
 unsigned int sizeOfType (PclType type)
