@@ -22,7 +22,7 @@ general.o: general.c general.h error.h
 	$(CXX) $(CXXFLAGS) general.c -c -o general.o
 error.o: error.c general.h error.h
 	$(CXX) $(CXXFLAGS) error.c -c -o error.o
-symbol.o: symbol.c general.h error.h symbol.h
+symbol.o: symbol.c general.h error.h ast_symbol.h
 	$(CXX) $(CXXFLAGS) symbol.c -c -o symbol.o
 
 parser.hpp parser.cpp: parser.y
