@@ -1,3 +1,3 @@
 # PCL
 
-Compiler developed in C,C++ <href>https://github.com/westes/flex/</href>
+Compiler developed in C,C++ [flex](https://github.com/westes/flex/) and [bison](https://www.gnu.org/software/bison/)
