@@ -1,0 +1,2 @@
+* PCL - NTUA compilers project 2019
+This is a compiler developed in C,C++ using flex and bison
