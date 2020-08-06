@@ -1,10 +1,12 @@
 #include "ast_symbol.h"
+#include "error.h"
 #include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 ast *find_ast_type(PclType tp) {
+  /*creates the corresponding ast structure of a type*/
   switch (tp->kind) {
   case TYPE_INTEGER: {
     return ast_type(INT, -1, NULL);
@@ -35,6 +37,14 @@ ast *find_ast_type(PclType tp) {
 }
 
 int make_params(ast *t, SymbolEntry *cur_func) {
+  /*Scopes in PCL are similar to those of the Pascal programming language. Thus,
+   * local variables of procedures or functions can be visible in
+   * functions/procedures defined inside them. As the llvm didn't include a way
+   * to access the individual stack frames to get these variables from the
+   * previous activation records, this function alters the ast adding those
+   * variables as arguments (by reference) to the corresponding functions. Due
+   * to the support of recursion and mutual recursion in PCL, this is a fixed
+   * point computation.*/
   SymbolEntry *p, *p1;
   PclType tp;
   PassMode pass_type;
@@ -42,10 +52,9 @@ int make_params(ast *t, SymbolEntry *cur_func) {
   int ret, ret2, ret3, flag;
 
   if (!t) { // Should not be reached
-    printf("Unknown Error\n");
+    error("Unknown Error");
     return 1;
   }
-  // printf("%d %s\n", t->k, t->id);
 
   switch (t->k) {
 
@@ -79,6 +88,9 @@ int make_params(ast *t, SymbolEntry *cur_func) {
   case LOCAL_VAR:
   case ASSIGN:
   case STMT: {
+    /*All these nodes in the AST just have to pass the control below. The
+     * variables needed to be passed as arguments are located in the leaves of
+     * the AST*/
     ret = (t->left && make_params(t->left, cur_func));
     ret2 = (t->right && make_params(t->right, cur_func));
     ret3 = (t->mid && make_params(t->mid, cur_func));
@@ -101,6 +113,7 @@ int make_params(ast *t, SymbolEntry *cur_func) {
   case NIL:
   case GOTO:
   case POINTER: {
+    /*No leaves below those nodes contain the variables we are looking for*/
     return 0;
   }
 
@@ -114,40 +127,29 @@ int make_params(ast *t, SymbolEntry *cur_func) {
 
   case PROCEDURE:
   case FUNCTION: {
-    // printf("in1\n");
+    /*These are the Header nodes. They just have to create the symbol entry of
+     * the function/procedure they represent at the symbol table*/
     t->sentry = newFunction(t->id);
-    // printf("in2\n");
     openScope();
-    // printf("in3\n");
-    if (t->left) { // t->left : seq_formal (parameters)
-      // printf("in4\n");
+    if (t->left) {    // t->left : seq_formal (parameters)
       head = t->left; // seq_formal
-      // printf("in5\n");
       while (head) {
-        // printf("in6\n");
         tp = head->left->right->type;
-        // printf("%d %d\n", head->left->k, head->left->right->k);
-        // printf("in7\n");
         pass_type = head->left->k == VARREF ? PASS_BY_REFERENCE : PASS_BY_VALUE;
-        // printf("in8\n");
         head1 = head->left->left;
-        // printf("in9\n");
         while (head1) {
           newParameter(head1->id, tp, pass_type, t->sentry);
-          // printf("in11\n");
           head1 = head1->right;
-          // printf("in12\n");
         }
-        // printf("in13\n");
         head = head->right;
       }
     }
-    // printf("in14\n");
     endFunctionHeader(t->sentry, t->type);
     return 0;
   }
 
   case PROGRAM: {
+    /*Initialize the first scope and define builtins*/
     openScope();
     define_builtins();
     ret = make_params(t->left, NULL);
@@ -160,6 +162,8 @@ int make_params(ast *t, SymbolEntry *cur_func) {
   case SEQ_LOCAL:
   case SEQ_LOCAL_VAR:
   case SEQ_STMT: {
+    /*To avoid many recursive calls of this function, we iterate through the
+     * linked list that each of these nodes represent.*/
     ret = 0;
     head = t;
     while (head) {
@@ -172,6 +176,7 @@ int make_params(ast *t, SymbolEntry *cur_func) {
   }
 
   case LOCAL_VAR_INSTANCE: {
+    /*Declare variables at the symbol table*/
     tp = t->right->type;
     head = t->left;
     while (head) {
@@ -182,6 +187,10 @@ int make_params(ast *t, SymbolEntry *cur_func) {
   }
 
   case ID: {
+    /*If this identifier is not in the current scope, then it is needed as a by
+     * reference parameter in the current function. Also return that a change
+     * has took place so this function can run again until the AST is
+     * stabilized*/
     ret = 0;
     if (!lookupEntry(t->id, LOOKUP_CURRENT_SCOPE, false)) {
       cur_func->u.eFunction.extra_params->insert(t->id);
@@ -191,6 +200,10 @@ int make_params(ast *t, SymbolEntry *cur_func) {
   }
 
   case CALL: {
+    /*Run through the arguments for variables we need to add in the calling
+     * function as arguments. Add the extra parameters already found for the
+     * function/procedure called. If any of these things happen, return that a
+     * change has been made.*/
     ret = 0;
     if (t->left)
       ret = make_params(t->left, cur_func);
@@ -244,11 +257,13 @@ int make_params(ast *t, SymbolEntry *cur_func) {
   }
 
   case DEFINITION: {
+    /*create the symbol entry of the function/procedure defined and pass it
+     * below to gain the extra arguments. If any of them occur, add them to the
+     * function/procedure in which this is defined*/
     make_params(t->left, cur_func);
     ret = make_params(t->right, t->left->sentry);
     closeScope();
     if (ret) {
-      // printf("edo\n");
       head = t->left;   // header
       if (head->left) { // arguments already exist
         for (head = head->left; head->right; head = head->right)
@@ -256,11 +271,12 @@ int make_params(ast *t, SymbolEntry *cur_func) {
         flag = 0;
       } else
         flag = 1;
-      for (auto &value : (*t->left->sentry->u.eFunction.extra_params)) {
-        // printf("in\n");
+      for (auto &value : (*t->left->sentry->u.eFunction
+                               .extra_params)) { // iterate through extra params
         if (!lookupEntry(const_cast<char *>(value.c_str()),
                          LOOKUP_CURRENT_SCOPE, false)) {
-          cur_func->u.eFunction.extra_params->insert(value);
+          cur_func->u.eFunction.extra_params->insert(
+              value); // add them to the outside function/procedure
         }
         p = lookupEntry(const_cast<char *>(value.c_str()), LOOKUP_ALL_SCOPES,
                         false);
@@ -288,7 +304,6 @@ int make_params(ast *t, SymbolEntry *cur_func) {
         }
       }
       if (t->left->sentry->u.eFunction.forward_decl) {
-        // printf("mesa\n");
         t->left->sentry->u.eFunction.forward_decl->left = t->left;
       }
     }
