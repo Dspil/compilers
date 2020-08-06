@@ -48,7 +48,7 @@ inline ConstantFP *c_real(double n) {
 }
 
 Type *find_llvm_type(PclType tp) {
-  // printf("megethos1 %d\n", tp->size);
+	/* function that converts symbol table type to llvm type */
   switch (tp->kind) {
   case TYPE_INTEGER: {
     return i32;
@@ -80,10 +80,14 @@ Type *find_llvm_type(PclType tp) {
 }
 
 void generate_builtins() {
+	/* procedure for declaring builtin functions, which will be later defined by linking externally bultins.so (made from builtins.ll)*/
   SymbolEntry *p;
   Function *f;
   FunctionType *tp;
 
+	//types used: int (4 bytes), char (1 byte), bool (1 byte), string (array of char), real (8 bytes - floating point)
+
+	/* writeInteger: takes int n as argument and prints n */
   p = newFunction("writeInteger");
   openScope();
   newParameter("n", typeInteger, PASS_BY_VALUE, p);
@@ -94,6 +98,7 @@ void generate_builtins() {
   p->u.eFunction.llvmFunc = f;
   closeScope();
 
+	/* writeBoolean: takes bool b as argument and prints true (if b == 1) or false (if b == 0) */
   p = newFunction("writeBoolean");
   openScope();
   newParameter("b", typeBoolean, PASS_BY_VALUE, p);
@@ -104,6 +109,7 @@ void generate_builtins() {
   p->u.eFunction.llvmFunc = f;
   closeScope();
 
+	/* writeChar: takes char c as argument and prints c */
   p = newFunction("writeChar");
   openScope();
   newParameter("c", typeChar, PASS_BY_VALUE, p);
@@ -114,6 +120,7 @@ void generate_builtins() {
   p->u.eFunction.llvmFunc = f;
   closeScope();
 
+	/* writeReal: takes real r as argument and prints r */
   p = newFunction("writeReal");
   openScope();
   newParameter("r", typeReal, PASS_BY_VALUE, p);
@@ -124,6 +131,7 @@ void generate_builtins() {
   p->u.eFunction.llvmFunc = f;
   closeScope();
 
+	/* writeString: takes constant string s as argument and prints s */
   p = newFunction("writeString");
   openScope();
   newParameter("s", typeIArray(typeChar), PASS_BY_REFERENCE, p);
@@ -135,6 +143,7 @@ void generate_builtins() {
   p->u.eFunction.llvmFunc = f;
   closeScope();
 
+	/* abs: takes int n as argument and returns absolute value of n */
   p = newFunction("abs");
   openScope();
   newParameter("n", typeInteger, PASS_BY_VALUE, p);
@@ -144,6 +153,7 @@ void generate_builtins() {
   p->u.eFunction.llvmFunc = f;
   closeScope();
 
+	/* fabs: takes real r as argument and returns absolute value of r as real */
   p = newFunction("fabs");
   openScope();
   newParameter("r", typeReal, PASS_BY_VALUE, p);
@@ -153,6 +163,7 @@ void generate_builtins() {
   p->u.eFunction.llvmFunc = f;
   closeScope();
 
+	/* sqrt: takes real r as argument and returns square root of r */
   p = newFunction("sqrt");
   openScope();
   newParameter("r", typeReal, PASS_BY_VALUE, p);
@@ -162,6 +173,7 @@ void generate_builtins() {
   p->u.eFunction.llvmFunc = f;
   closeScope();
 
+	/* sin: takes real r as argument and returns sine of r */
   p = newFunction("sin");
   openScope();
   newParameter("r", typeReal, PASS_BY_VALUE, p);
@@ -171,6 +183,7 @@ void generate_builtins() {
   p->u.eFunction.llvmFunc = f;
   closeScope();
 
+	/* cos: takes real r as argument and returns cosine of r */
   p = newFunction("cos");
   openScope();
   newParameter("r", typeReal, PASS_BY_VALUE, p);
@@ -180,6 +193,7 @@ void generate_builtins() {
   p->u.eFunction.llvmFunc = f;
   closeScope();
 
+	/* tan: takes real r as argument and returns tangent of r */
   p = newFunction("tan");
   openScope();
   newParameter("r", typeReal, PASS_BY_VALUE, p);
@@ -189,6 +203,7 @@ void generate_builtins() {
   p->u.eFunction.llvmFunc = f;
   closeScope();
 
+	/* arctan: takes real r as argument and returns arctangent of r */
   p = newFunction("arctan");
   openScope();
   newParameter("r", typeReal, PASS_BY_VALUE, p);
@@ -199,6 +214,7 @@ void generate_builtins() {
   p->u.eFunction.llvmFunc = f;
   closeScope();
 
+	/* exp: takes real r as argument and returns e^r */
   p = newFunction("exp");
   openScope();
   newParameter("r", typeReal, PASS_BY_VALUE, p);
@@ -208,6 +224,7 @@ void generate_builtins() {
   p->u.eFunction.llvmFunc = f;
   closeScope();
 
+	/* ln: takes real r as argument and returns logarithm base e of r */
   p = newFunction("ln");
   openScope();
   newParameter("r", typeReal, PASS_BY_VALUE, p);
@@ -217,6 +234,7 @@ void generate_builtins() {
   p->u.eFunction.llvmFunc = f;
   closeScope();
 
+	/* pi: returns pi */
   p = newFunction("pi");
   openScope();
   endFunctionHeader(p, typeReal);
@@ -225,6 +243,7 @@ void generate_builtins() {
   p->u.eFunction.llvmFunc = f;
   closeScope();
 
+	/* trunc: takes real r as argument, truncates the decimal portion of r and returns the rest as int */
   p = newFunction("trunc");
   openScope();
   newParameter("r", typeReal, PASS_BY_VALUE, p);
@@ -235,6 +254,7 @@ void generate_builtins() {
   p->u.eFunction.llvmFunc = f;
   closeScope();
 
+	/* round: takes real r as argument returns rounded r as int */
   p = newFunction("round");
   openScope();
   newParameter("r", typeReal, PASS_BY_VALUE, p);
@@ -245,6 +265,7 @@ void generate_builtins() {
   p->u.eFunction.llvmFunc = f;
   closeScope();
 
+	/* ord: takes char c as argument and returns its ascii code */
   p = newFunction("ord");
   openScope();
   newParameter("c", typeChar, PASS_BY_VALUE, p);
@@ -254,6 +275,7 @@ void generate_builtins() {
   p->u.eFunction.llvmFunc = f;
   closeScope();
 
+	/* chr: takes ascii code (int) of c as argument and returns char c */
   p = newFunction("chr");
   openScope();
   newParameter("n", typeInteger, PASS_BY_VALUE, p);
@@ -263,6 +285,7 @@ void generate_builtins() {
   p->u.eFunction.llvmFunc = f;
   closeScope();
 
+	/* readInteger: returns int read from standard input */
   p = newFunction("readInteger");
   openScope();
   endFunctionHeader(p, typeInteger);
@@ -272,6 +295,7 @@ void generate_builtins() {
   p->u.eFunction.llvmFunc = f;
   closeScope();
 
+	/* readBoolean: returns bool read from standard input */
   p = newFunction("readBoolean");
   openScope();
   endFunctionHeader(p, typeBoolean);
@@ -281,6 +305,7 @@ void generate_builtins() {
   p->u.eFunction.llvmFunc = f;
   closeScope();
 
+	/* readChar: returns char read from standard input */
   p = newFunction("readChar");
   openScope();
   endFunctionHeader(p, typeChar);
@@ -290,6 +315,7 @@ void generate_builtins() {
   p->u.eFunction.llvmFunc = f;
   closeScope();
 
+	/* readReal: returns real read from standard input */
   p = newFunction("readReal");
   openScope();
   endFunctionHeader(p, typeReal);
@@ -299,6 +325,8 @@ void generate_builtins() {
   p->u.eFunction.llvmFunc = f;
   closeScope();
 
+	/* readString: takes int size and array of char s as input and saves a string
+	 	 of specfic size read from standard input as null terminated in s */
   p = newFunction("readString");
   openScope();
   newParameter("size", typeInteger, PASS_BY_VALUE, p);
@@ -312,6 +340,9 @@ void generate_builtins() {
   p->u.eFunction.llvmFunc = f;
   closeScope();
 
+	/* Helping function, not required
+		 cMalloc: takes int size, allocates heap memory of specific size and returns
+		 its first position in memory */
   p = newFunction("cMalloc");
   openScope();
   newParameter("s", typeInteger, PASS_BY_VALUE, p);
@@ -324,6 +355,7 @@ void generate_builtins() {
 }
 
 Value *lvalue_pointer(ast *t, Function *cur_func) {
+	/* function that takes an ast t and returns its llvm stack memory position */
   SymbolEntry *p;
   Value *l, *r;
   switch (t->k) {
@@ -353,12 +385,10 @@ Value *lvalue_pointer(ast *t, Function *cur_func) {
   }
   default: { return NULL; }
   }
-  /* error */
-  return NULL;
 }
 
 void prepareFunctionSymbolTable(ast *t) {
-  // printf("in proc\n");
+	/* function for declaring a function in the symbol table */
   PassMode pass_type;
   ast *head, *head1;
   PclType tp;
@@ -368,26 +398,21 @@ void prepareFunctionSymbolTable(ast *t) {
   if (t->left) {    // t->left : seq_formal (parameters)
     head = t->left; // seq_formal
     while (head) {
-      // printf("in while\n");
       tp = head->left->right->type;
       pass_type = head->left->k == VARREF ? PASS_BY_REFERENCE : PASS_BY_VALUE;
       head1 = head->left->left;
       while (head1) {
-        // printf("in while2\n");
         newParameter(head1->id, tp, pass_type, t->sentry);
         head1 = head1->right;
-        // printf("out while2\n");
       }
-      // printf("out while\n");
       head = head->right;
     }
-    // printf("outproc\n");
   }
-  // printf("found type\n");
   endFunctionHeader(t->sentry, t->type);
 }
 
 Value *code_gen(ast *t, Function *cur_func) {
+	/* main recursive function for generating llvm code */
   SymbolEntry *p, *p1;
   ast *head, *head1;
   PclType tp;
@@ -399,66 +424,68 @@ Value *code_gen(ast *t, Function *cur_func) {
   std::vector<Type *> params = std::vector<Type *>();
   AllocaInst *Alloca;
 
-  // printf("%d %s\n", t->k, t->id);
-
   if (!t) {
+		// Should not be reached
     return NULL;
   }
 
   switch (t->k) {
 
   case AND: {
+		// case '+'
     l = code_gen(t->left, cur_func);
     r = code_gen(t->right, cur_func);
     return Builder.CreateAnd(l, r);
   }
 
   case OR: {
+		// case '||'
     l = code_gen(t->left, cur_func);
     r = code_gen(t->right, cur_func);
     return Builder.CreateOr(l, r);
   }
 
   case BLOCK: {
-    // printf("in block\n");
+		// case block of statements
     code_gen(t->left, cur_func);
-    // printf("out block\n");
     return NULL;
   }
 
-  case BODY: {
-    // printf("in body\n");
+  case BODY:
+		// case local headers (if any) and block of statements
     if (t->left)
       code_gen(t->left, cur_func);
-    // printf("ran t->left\n");
     code_gen(t->right, cur_func);
-    // printf("out body\n");
     return NULL;
   }
 
   case BOOL_CONST: {
+		// case constant bool (e.g. true or false)
     return c_bool(t->boolean);
   }
 
   case CHAR_CONST: {
-    // printf("char: %c\n", t->character);
+		// case constant char
     l = c_char(t->character);
     return l;
   }
 
   case DIV: {
+		// case 'div'
     l = code_gen(t->left, cur_func);
     r = code_gen(t->right, cur_func);
     return Builder.CreateSDiv(l, r);
   }
 
   case MOD: {
+		// case 'mod'
     l = code_gen(t->left, cur_func);
     r = code_gen(t->right, cur_func);
     return Builder.CreateSRem(l, r);
   }
 
   case FORWARD: {
+		// case forward <header>
     code_gen(t->left, cur_func);
     forwardFunction(t->left->sentry);
     closeScope();
@@ -466,15 +493,13 @@ Value *code_gen(ast *t, Function *cur_func) {
   }
 
   case GOTO: {
-    // printf("in goto\n");
+		// case goto <stmt>
     p = lookupEntry(t->str, LOOKUP_CURRENT_SCOPE, false);
     if (p->u.eVariable.block) {
-      // printf("lookedup in goto\n");
+			// if label is already defined
       Builder.CreateBr(p->u.eVariable.block);
-      // printf("made break\n");
       return NULL;
     } else {
-      // printf("edo\n");
       p->u.eVariable.goto_stack.push_back(
           &cur_func->getBasicBlockList().back());
       lBB = BasicBlock::Create(TheContext, "help", cur_func);

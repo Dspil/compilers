@@ -821,7 +821,6 @@ int type_check(ast *t, PclType ftype) {
   PclType tp;
   PassMode pass_type;
 
-  // printf("%d\n", t->k);
   if (!t) { // Should not be reached
     internal("Control reached something it was not supposed to");
     return 1;
@@ -1417,7 +1416,6 @@ int type_check(ast *t, PclType ftype) {
   case LABEL:
     head = t->left;
     while (head) {
-      // error("in while");
       if (lookupEntry(head->id, LOOKUP_CURRENT_SCOPE, false)) {
         error("while creating label: name %s already exists in this scope!",
                head->id);
@@ -1481,7 +1479,7 @@ int type_check(ast *t, PclType ftype) {
 }
 
 int type_checking(ast *t) {
-  initSymbolTable(256);
+  initSymbolTable(256);              
   int ret = type_check(t, NULL);
   destroySymbolTable();
   return ret;

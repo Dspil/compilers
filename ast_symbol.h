@@ -100,6 +100,7 @@ char *make_string(char *s);
 void define_builtins();
 
 bool check_compatible(PclType def_t, PclType pass_t);
+
 bool check_compatible_array(PclType def_t, PclType pass_t);
 
 ast *make_ast(kind k, char *id, char *str, int boolean, int integer,
