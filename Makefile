@@ -13,7 +13,10 @@ LDFLAGS=`llvm-config --ldflags --system-libs --libs all`
 CC=gcc
 CFLAGS=-Wall
 
-default: pclcomp builtins.so
+default: pclcomp builtins.so pcl
+
+pcl: pcl.py
+	cp pcl.py pcl & chmod +x pcl
 
 builtins.so: builtins.ll
 	clang builtins.ll -c -o builtins.so
@@ -53,4 +56,4 @@ clean:
 	$(RM) *.o *~* parser.hpp *#* parser.output parser.cpp lexer.cpp parser.c lexer.c parser.h a.ll a.s a.out builtins.so
 
 distclean: clean
-	$(RM) pclcomp
+	$(RM) pclcomp pcl
