@@ -1,0 +1,9 @@
+program error; var
+	var x: real;
+	procedure y(x:integer);
+		begin
+			writeInteger(x);
+		end;
+	begin
+		y(x);
+	end.

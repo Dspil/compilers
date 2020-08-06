@@ -1,3 +1,5 @@
+%expect 3
+
 %{
 #include "yyfunc.h"
 #include <stdio.h>
@@ -5,6 +7,7 @@
 #include "ast_symbol.h"
 #include "make_params.hpp"
 #include "code_gen.hpp"
+#include "error.h"
 
 ast * t;
 %}
@@ -266,20 +269,17 @@ binop:
 */
 %%
 
-int main() {
+int optimize_code;
+
+int main(int argc, char* argv[]) {
   int result = yyparse();
   if (result == 0) {
-  	//print_ast(t);
     if(type_checking(t)) {
-		printf("Type Checking Failed!\n");
+		error("Type Checking Failed!");
 		return 1;
 	}
-	printf("Type Checking Successful!\n");
-	while (make_parameters(t)) {
-		//printf("Finished a pass\n");
-		//print_ast(t);
-	}
-	//printf("Making of parameters successful!\n");
+	while (make_parameters(t));
+	optimize_code = argc > 1;
 	generate_code(t);
   }
   return result;

@@ -13,10 +13,13 @@ LDFLAGS=`llvm-config --ldflags --system-libs --libs all`
 CC=gcc
 CFLAGS=-Wall
 
-default: pcl
+default: pclcomp builtins.so
 
-pcl: ast.o make_params.o code_gen.o parser.o lexer.o symbol.o error.o general.o
-	$(CXX) $(CXXFLAGS) -o pcl $^ $(LDFLAGS)
+builtins.so: builtins.ll
+	clang builtins.ll -c -o builtins.so
+
+pclcomp: ast.o make_params.o code_gen.o parser.o lexer.o symbol.o error.o general.o
+	$(CXX) $(CXXFLAGS) -o pclcomp $^ $(LDFLAGS)
 
 general.o: general.c general.h error.h
 	$(CXX) $(CXXFLAGS) general.c -c -o general.o
@@ -47,7 +50,7 @@ code_gen.o: code_gen.cpp code_gen.hpp ast_symbol.h
 	$(CXX) $(CXXFLAGS) -c code_gen.cpp -o code_gen.o
 
 clean:
-	$(RM) *.o *~* parser.hpp *#* parser.output parser.cpp lexer.cpp parser.c lexer.c parser.h a.ll a.s a.out
+	$(RM) *.o *~* parser.hpp *#* parser.output parser.cpp lexer.cpp parser.c lexer.c parser.h a.ll a.s a.out builtins.so
 
 distclean: clean
-	$(RM) pcl
+	$(RM) pclcomp

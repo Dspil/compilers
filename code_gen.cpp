@@ -624,15 +624,16 @@ Value *code_gen(ast *t, Function *cur_func) {
     // printf("out createret\n");
     closeScope();
     // printf("closed scope\n");
-    TheFPM = std::make_unique<legacy::FunctionPassManager>(TheModule.get());
-    TheFPM->add(createPromoteMemoryToRegisterPass());
-    TheFPM->add(createInstructionCombiningPass());
-    TheFPM->add(createReassociatePass());
-    TheFPM->add(createGVNPass());
-    TheFPM->add(createCFGSimplificationPass());
-    TheFPM->doInitialization();
-    TheFPM->run(*f);
-    // printf("ran\n");
+		if (optimize_code) {
+    	TheFPM = std::make_unique<legacy::FunctionPassManager>(TheModule.get());
+    	TheFPM->add(createPromoteMemoryToRegisterPass());
+    	TheFPM->add(createInstructionCombiningPass());
+    	TheFPM->add(createReassociatePass());
+    	TheFPM->add(createGVNPass());
+    	TheFPM->add(createCFGSimplificationPass());
+    	TheFPM->doInitialization();
+    	TheFPM->run(*f);
+		}
     return NULL;
   }
 

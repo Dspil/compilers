@@ -1,10 +1,11 @@
 %option noyywrap
+%option nounput
 
 %{
 #include "ast_symbol.h"
 #include "parser.hpp"
 #include "yyfunc.h"
-void ERROR(char * s);
+#include "error.h"
 %}
 
 L [a-zA-Z]
@@ -66,22 +67,10 @@ W [ \t\r\n]
 
 {W}+ {/* nothing */}
 
-. {ERROR("illegal token "); ERROR(yytext);}
+. {error("illegal token \"%s\"", yytext); return 1;}
 
 %%
 
-void ERROR(char * s) {
-  printf("%s\n", s);
-}
-
 void yyerror(const char *msg) {
-    printf("%s\n", msg);
+    error("%s", msg);
 }
-
-/* int main () {
-  int token;
-  do {
-    token = yylex();
-    printf("token=%d, lexeme=\"%s\"\n", token, yytext);
-  } while (token != 0);
-} */

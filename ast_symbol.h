@@ -71,6 +71,8 @@ typedef enum {
   LABEL
 } kind;
 
+extern int optimize_code;
+
 typedef struct Type_tag *PclType;
 typedef struct SymbolEntry_tag SymbolEntry;
 

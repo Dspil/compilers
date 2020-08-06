@@ -1,4 +1,5 @@
 #include "ast_symbol.h"
+#include "error.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -822,7 +823,7 @@ int type_check(ast *t, PclType ftype) {
 
   // printf("%d\n", t->k);
   if (!t) { // Should not be reached
-    printf("Unknown Error\n");
+    internal("Control reached something it was not supposed to");
     return 1;
   }
 
@@ -837,9 +838,9 @@ int type_check(ast *t, PclType ftype) {
       t->type = typeBoolean;
     else {
       if (t->k == AND)
-        printf("Type error: \"and\" arguments must be boolean!\n");
+        error("\"and\" arguments must be boolean!");
       else
-        printf("Type error: \"or\" arguments must be boolean!\n");
+        error("\"or\" arguments must be boolean!");
       return 1;
     }
     break;
@@ -848,7 +849,7 @@ int type_check(ast *t, PclType ftype) {
     if (type_check(t->left, ftype))
       return 1;
     if (!t->left->type->full) {
-      printf("Type error: array must reference a full type!\n");
+      error("array must reference a full type!");
       return 1;
     }
     t->type = typeIArray(t->left->type);
@@ -858,13 +859,13 @@ int type_check(ast *t, PclType ftype) {
     if (type_check(t->left, ftype))
       return 1;
     if (!t->left->type->full) {
-      printf("Type error: array must reference a full type!\n");
+      error("array must reference a full type!");
       return 1;
     }
     if (t->size > 0)
       t->type = typeArray(t->size, t->left->type);
     else {
-      printf("Type error: size of array must be positive!\n");
+      error("size of array must be positive!");
       return 1;
     }
     break;
@@ -897,8 +898,8 @@ int type_check(ast *t, PclType ftype) {
     if (type_check(t->left, ftype))
       return 1;
     if (t->left->type->kind != TYPE_POINTER || !t->left->type->full) {
-      printf(
-          "Type error: \"dispose\" argument must be pointer to full type!\n");
+      error(
+          " \"dispose\" argument must be pointer to full type!");
       return 1;
     }
     break;
@@ -912,9 +913,9 @@ int type_check(ast *t, PclType ftype) {
       t->type = typeInteger;
     else {
       if (t->k == DIV)
-        printf("Type error: \"div\" arguments must be integers!\n");
+        error("\"div\" arguments must be integers!");
       else
-        printf("Type error: \"mod\" arguments must be integers!\n");
+        error("\"mod\" arguments must be integers!");
       return 1;
     }
     break;
@@ -924,7 +925,7 @@ int type_check(ast *t, PclType ftype) {
       return 1;
     forwardFunction(t->left->sentry);
     if (lookupEntry(t->left->sentry->id, LOOKUP_CURRENT_SCOPE, false)) {
-      printf("Error (forward): function %s already exists!\n",
+      error("Error (forward): function %s already exists!",
              t->left->sentry->id);
       return 1;
     }
@@ -933,7 +934,7 @@ int type_check(ast *t, PclType ftype) {
 
   case GOTO:
     if (!lookupEntry(t->str, LOOKUP_CURRENT_SCOPE, true)) {
-      printf("Error (goto): Undefined label %s\n", t->str);
+      error("Error (goto): Undefined label %s", t->str);
       return 1;
     }
     break;
@@ -943,7 +944,7 @@ int type_check(ast *t, PclType ftype) {
         (t->right && type_check(t->right, ftype)))
       return 1;
     if (!(t->left->type->kind == TYPE_BOOLEAN)) {
-      printf("Type Error: if condition must be boolean!\n");
+      error("if condition must be boolean!");
       return 1;
     }
     break;
@@ -958,21 +959,21 @@ int type_check(ast *t, PclType ftype) {
       if (type_check(t->right, ftype))
         return 1;
       if (t->right->type->kind != TYPE_POINTER || (!t->right->type->full)) {
-        printf("Type Error: \"new\" argument must be pointer to full type!\n");
+        error("\"new\" argument must be pointer to full type!");
         return 1;
       }
     } else {
       if (type_check(t->left, ftype) || type_check(t->right, ftype))
         return 1;
       if (t->left->type->kind != TYPE_INTEGER) {
-        printf("Type Error: \"new\" size must be integer!\n");
+        error("\"new\" size must be integer!");
         return 1;
       }
       if (t->right->type->kind != TYPE_POINTER ||
           t->right->type->refType->kind != TYPE_IARRAY ||
           !t->right->type->refType->refType->full) {
-        printf("Type Error: \"new [size]\" argument must be pointer to "
-               "indefinite array of a full type!\n");
+        error("\"new [size]\" argument must be pointer to "
+               "indefinite array of a full type!");
         return 1;
       }
     }
@@ -982,7 +983,7 @@ int type_check(ast *t, PclType ftype) {
     if (type_check(t->left, ftype))
       return 1;
     if (!(t->left->type->kind == TYPE_BOOLEAN)) {
-      printf("Type Error: \"not\" argument must be boolean!\n");
+      error("\"not\" argument must be boolean!");
       return 1;
     }
     t->type = typeBoolean;
@@ -999,9 +1000,9 @@ int type_check(ast *t, PclType ftype) {
       while (head) {
         tp = head->left->right->type;
         pass_type = head->left->k == VARREF ? PASS_BY_REFERENCE : PASS_BY_VALUE;
-        if (pass_type == PASS_BY_VALUE && tp->kind != TYPE_ARRAY &&
-            tp->kind != TYPE_IARRAY) {
-          printf("Type Error: can not pass array by value in function %s\n",
+        if (pass_type == PASS_BY_VALUE && (tp->kind == TYPE_ARRAY ||
+            tp->kind == TYPE_IARRAY)) {
+          error("can not pass array by value in function %s",
                  t->id);
           return 1;
         }
@@ -1035,8 +1036,8 @@ int type_check(ast *t, PclType ftype) {
 
   case RESULT:
     if (!ftype || ftype->kind == TYPE_VOID) {
-      printf("Error (result): \"result\" variable can only exist in function "
-             "body!\n");
+      error("\"result\" variable can only exist in function "
+             "body!");
       return 1;
     }
     if (lookupEntry("result", LOOKUP_CURRENT_SCOPE, false))
@@ -1054,7 +1055,7 @@ int type_check(ast *t, PclType ftype) {
     if (type_check(t->left, ftype) || type_check(t->right, ftype))
       return 1;
     if (!(t->left->type->kind == TYPE_BOOLEAN)) {
-      printf("Type Error: \"while\" condition must be boolean!\n");
+      error("\"while\" condition must be boolean!");
       return 1;
     }
     break;
@@ -1077,11 +1078,11 @@ int type_check(ast *t, PclType ftype) {
         (t->right->type->kind == TYPE_ARRAY) ||
         (t->right->type->kind == TYPE_IARRAY)) {
       if (t->k == NEQ)
-        printf("Type Error: \"<>\" arguments must be of equal type or "
-               "arithmetic and not type array!\n");
+        error("\"<>\" arguments must be of equal type or "
+               "arithmetic and not type array!");
       else
-        printf("Type Error: \"=\" arguments must be of equal type or "
-               "arithmetic and not type array!\n");
+        error("\"=\" arguments must be of equal type or "
+               "arithmetic and not type array!");
       return 1;
     }
     t->type = typeBoolean;
@@ -1098,13 +1099,13 @@ int type_check(ast *t, PclType ftype) {
         !(t->right->type->kind == TYPE_INTEGER ||
           t->right->type->kind == TYPE_REAL)) {
       if (t->k == GEQ)
-        printf("Type Error: \">=\" arguments must be arithmetic!\n");
+        error("\">=\" arguments must be arithmetic!");
       else if (t->k == LEQ)
-        printf("Type Error: \"<=\" arguments must be arithmetic!\n");
+        error("\"<=\" arguments must be arithmetic!");
       else if (t->k == LESS)
-        printf("Type Error: \"<\" arguments must be arithmetic!\n");
+        error("\"<\" arguments must be arithmetic!");
       else
-        printf("Type Error: \">\" arguments must be arithmetic!\n");
+        error("\">\" arguments must be arithmetic!");
       return 1;
     }
     t->type = typeBoolean;
@@ -1116,8 +1117,8 @@ int type_check(ast *t, PclType ftype) {
         return 1;
       if (t->left->type->kind != TYPE_INTEGER &&
           t->left->type->kind != TYPE_REAL) {
-        printf("Type Error: Unary operand \"+\" accepts only a numeric "
-               "argument\n");
+        error("Unary operand \"+\" accepts only a numeric "
+               "argument");
       }
       t->type = t->left->type;
     } else {
@@ -1136,7 +1137,7 @@ int type_check(ast *t, PclType ftype) {
                t->right->type->kind == TYPE_REAL)
         t->type = typeReal;
       else {
-        printf("Type Error: \"+\" arguments must be arithmetic!\n");
+        error("\"+\" arguments must be arithmetic!");
         return 1;
       }
     }
@@ -1148,8 +1149,8 @@ int type_check(ast *t, PclType ftype) {
         return 1;
       if (t->left->type->kind != TYPE_INTEGER &&
           t->left->type->kind != TYPE_REAL) {
-        printf("Type Error: Unary operand \"-\" accepts only a numeric "
-               "argument\n");
+        error("Unary operand \"-\" accepts only a numeric "
+               "argument");
       }
       t->type = t->left->type;
     } else {
@@ -1168,7 +1169,7 @@ int type_check(ast *t, PclType ftype) {
                t->right->type->kind == TYPE_REAL)
         t->type = typeReal;
       else {
-        printf("Type Error: \"-\" arguments must be arithmetic!\n");
+        error("\"-\" arguments must be arithmetic!");
         return 1;
       }
     }
@@ -1190,7 +1191,7 @@ int type_check(ast *t, PclType ftype) {
              t->right->type->kind == TYPE_REAL)
       t->type = typeReal;
     else {
-      printf("Type Error: \"*\" arguments must be arithmetic!\n");
+      error("\"*\" arguments must be arithmetic!");
       return 1;
     }
     break;
@@ -1204,7 +1205,7 @@ int type_check(ast *t, PclType ftype) {
          t->right->type->kind == TYPE_REAL))
       t->type = typeReal;
     else {
-      printf("Type Error: \"/\" arguments must be arithmetic!\n");
+      error("\"/\" arguments must be arithmetic!");
       return 1;
     }
     break;
@@ -1215,7 +1216,7 @@ int type_check(ast *t, PclType ftype) {
     if (t->left->type->kind == TYPE_POINTER)
       t->type = t->left->type->refType;
     else {
-      printf("Type Error: \"^\" argument must be pointer!\n");
+      error("\"^\" argument must be pointer!");
       return 1;
     }
     break;
@@ -1226,7 +1227,7 @@ int type_check(ast *t, PclType ftype) {
     if (t->left->type)
       t->type = typePointer(t->left->type);
     else {
-      printf("Type Error: \"@\" argument must be of valid type!\n");
+      error("\"@\" argument must be of valid type!");
       return 1;
     }
     break;
@@ -1245,7 +1246,7 @@ int type_check(ast *t, PclType ftype) {
   case STMT:
     if (!(p = lookupEntry(t->id, LOOKUP_CURRENT_SCOPE, true)) ||
         p->u.eVariable.type->kind != TYPE_LABEL) {
-      printf("Error (label): label %s does not exist!\n", t->id);
+      error("Error (label): label %s does not exist!", t->id);
       return 1;
     }
     if (type_check(t->left, ftype))
@@ -1260,8 +1261,8 @@ int type_check(ast *t, PclType ftype) {
         t->right->type->kind == TYPE_INTEGER)
       t->type = t->left->type->refType;
     else {
-      printf(
-          "Type Error: Can only index an array and index must be integer!\n");
+      error(
+          " Can only index an array and index must be integer!");
       return 1;
     }
     break;
@@ -1271,15 +1272,15 @@ int type_check(ast *t, PclType ftype) {
       return 1;
     if (!(p = lookupEntry(t->id, LOOKUP_ALL_SCOPES, true)) ||
         p->entryType != ENTRY_FUNCTION) {
-      printf("Error (call function): function %s undeclared!\n", t->id);
+      error("Error (call function): function %s undeclared!", t->id);
       return 1;
     }
     p1 = p->u.eFunction.firstArgument;
     head = t->left;
     while (head) {
       if (!p1) {
-        printf("Error (call function): more arguments given to function %s "
-               "than needed!\n",
+        error("Error (call function): more arguments given to function %s "
+               "than needed!",
                t->id);
         return 1;
       }
@@ -1293,20 +1294,21 @@ int type_check(ast *t, PclType ftype) {
               head->left->type->refType->kind == TYPE_ARRAY &&
               equalType(p1->u.eParameter.type->refType->refType,
                         head->left->type->refType->refType))) {
-          printf(
-              "Error (call function): argument type mismatch to function %s!\n",
+          error(
+              "while calling function %s: argument type mismatch!",
               t->id);
+							return 1;
         }
       } else {
         if (!is_lvalue(head->left)) {
-          printf("Error (call function): can't pass non lvalue by reference at "
-                 "function %s!\n",
+          error("Error (call function): can't pass non lvalue by reference at "
+                 "function %s!",
                  t->id);
           return 1;
         }
         if (!check_compatible(p1->u.eParameter.type, head->left->type)) {
-          printf(
-              "Error (call function): argument type mismatch to function %s!\n",
+          error(
+              "Error (call function): argument type mismatch to function %s!",
               t->id);
           return 1;
         }
@@ -1315,8 +1317,8 @@ int type_check(ast *t, PclType ftype) {
       p1 = p1->u.eParameter.next;
     }
     if (p1) {
-      printf("Error (call function): less arguments given to function %s than "
-             "needed!\n",
+      error("Error (call function): less arguments given to function %s than "
+             "needed!",
              t->id);
       return 1;
     }
@@ -1364,7 +1366,7 @@ int type_check(ast *t, PclType ftype) {
     }
     if (t->left->k == FUNCTION &&
         !lookupEntry("result", LOOKUP_CURRENT_SCOPE, false)) {
-      printf("Error (function %s): Functions must assign to result!\n",
+      error("Error (function %s): Functions must assign to result!",
              t->left->id);
     }
     closeScope();
@@ -1391,8 +1393,8 @@ int type_check(ast *t, PclType ftype) {
     if (t->left->type->kind != TYPE_POINTER ||
         t->left->type->refType->kind != TYPE_IARRAY ||
         !t->left->type->refType->refType->full) {
-      printf("Type Error: \"dispose []\" argument must be pointer to "
-             "indefinite array to full type!\n");
+      error("\"dispose []\" argument must be pointer to "
+             "indefinite array to full type!");
       return 1;
     }
     break;
@@ -1400,7 +1402,7 @@ int type_check(ast *t, PclType ftype) {
   case ID:
     if (!(p = lookupEntry(t->id, LOOKUP_ALL_SCOPES, true)) ||
         (p->entryType != ENTRY_VARIABLE && p->entryType != ENTRY_PARAMETER)) {
-      printf("Error (id): variable %s does not exist!\n", t->id);
+      error("Error (id): variable %s does not exist!", t->id);
       return 1;
     }
     switch (p->entryType) {
@@ -1415,9 +1417,9 @@ int type_check(ast *t, PclType ftype) {
   case LABEL:
     head = t->left;
     while (head) {
-      // printf("in while\n");
+      // error("in while");
       if (lookupEntry(head->id, LOOKUP_CURRENT_SCOPE, false)) {
-        printf("Error (label): name %s already exists in this scope!\n",
+        error("while creating label: name %s already exists in this scope!",
                head->id);
         return 1;
       }
@@ -1431,7 +1433,7 @@ int type_check(ast *t, PclType ftype) {
       return 1;
     if (t->right->k == NIL) {
       if (t->left->type->kind != TYPE_POINTER) {
-        printf("Type Error: Can only assign \"nil\" to pointer!\n");
+        error("can only assign \"nil\" to pointer!");
         return 1;
       } else
         break;
@@ -1452,7 +1454,7 @@ int type_check(ast *t, PclType ftype) {
           t->right->type->refType->kind == TYPE_ARRAY &&
           equalType(t->left->type->refType->refType,
                     t->right->type->refType->refType))) {
-      printf("Type error: \":=\" arguments must be of compatible type\n");
+      error("\":=\" arguments must be of compatible type");
       return 1;
     }
     break;
@@ -1464,8 +1466,8 @@ int type_check(ast *t, PclType ftype) {
     break;
 
   case NIL: {
-    printf("Error (nil): \"nil\" should only appear as rvalue of an "
-           "assignment!\n");
+    error("\"nil\" should only appear as rvalue of an "
+           "assignment!");
     return 1;
   }
 
