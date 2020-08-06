@@ -41,3 +41,9 @@ After running `make` one can use the python script `pcl` to invoke the compiler 
 ```bash
 ./pcl <options>
 ```
+
+For a full listing of the available options run:
+
+```bash
+./pcl -h
+```
