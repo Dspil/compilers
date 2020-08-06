@@ -1,5 +1,6 @@
 #include "code_gen.hpp"
 #include "ast_symbol.h"
+#include "error.h"
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -384,7 +385,7 @@ Value *lvalue_pointer(ast *t, Function *cur_func) {
     return Builder.CreateGlobalStringPtr(t->str);
   }
   default: { return NULL; }
-  }
+	}
 }
 
 void prepareFunctionSymbolTable(ast *t) {
@@ -451,7 +452,7 @@ Value *code_gen(ast *t, Function *cur_func) {
     return NULL;
   }
 
-  case BODY:
+  case BODY: {
 		// case locals (if any) and block of statements
     if (t->left)
       code_gen(t->left, cur_func);

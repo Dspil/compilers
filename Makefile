@@ -15,8 +15,11 @@ CFLAGS=-Wall
 
 default: pclcomp builtins.so pcl
 
-pcl: pcl.py
-	cp pcl.py pcl & chmod +x pcl
+pcl: pcltemp
+	 chmod +x pcl
+
+pcltemp: pcl.py
+	cp pcl.py pcl
 
 builtins.so: builtins.ll
 	clang builtins.ll -c -o builtins.so

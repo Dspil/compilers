@@ -59,7 +59,10 @@ if __name__ == "__main__":
         print(llvmir.decode())
         sys.exit(0)
 
-    p = Popen(["llc"], stdout=PIPE, stdin=PIPE, stderr=PIPE)
+    if args.optimize:
+        p = Popen(["llc", "-O2"], stdout=PIPE, stdin=PIPE, stderr=PIPE)
+    else:
+        p = Popen(["llc"], stdout=PIPE, stdin=PIPE, stderr=PIPE)
     pout = p.communicate(input=llvmir)
     if p.returncode == 1:
         print(pout[1].decode())
