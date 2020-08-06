@@ -4,8 +4,8 @@ Compiler developed mostly in [C](https://en.wikipedia.org/wiki/C_(programming_la
 
 ## Authors
 
-   *Danai Efstathiou ([danaiefst](https://github.com/danaiefst))
-   *Dionysios Spiliopoulos ([Dspil](https://github.com/Dspil))
+   * Danai Efstathiou ([danaiefst](https://github.com/danaiefst))
+   * Dionysios Spiliopoulos ([Dspil](https://github.com/Dspil))
 
 ## The pcl programming language
 
