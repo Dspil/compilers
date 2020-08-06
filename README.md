@@ -15,21 +15,20 @@ PCL is an imperative programming language resembling the [Pascal](https://en.wik
 
 This tools used for the development of this compiler are:
 
-     * [C](https://en.wikipedia.org/wiki/C_(programming_language)) and [C++](https://en.wikipedia.org/wiki/C%2B%2B) languages
-     * [flex](https://github.com/westes/flex/)
-     * [bison](https://www.gnu.org/software/bison/)
-     * [llvm](https://llvm.org/)
+   * [C](https://en.wikipedia.org/wiki/C_(programming_language)) and [C++](https://en.wikipedia.org/wiki/C%2B%2B) languages
+   * [flex](https://github.com/westes/flex/)
+   * [bison](https://www.gnu.org/software/bison/)
+   * [llvm](https://llvm.org/)
 
 ## Dependencies
 
 This project was built with the following tools:
-
-     * g++ version 7.5.0
-     * clang version 11.0.0
-     * llvm version 11.0.0
-     * python version 3.6.9
-     * flex version 2.6.4
-     * bison version 3.0.4
+   * g++ version 7.5.0
+   * clang version 11.0.0
+   * llvm version 11.0.0
+   * python version 3.6.9
+   * flex version 2.6.4
+   * bison version 3.0.4
 
 ## installation
 
