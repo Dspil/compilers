@@ -932,7 +932,7 @@ int type_check(ast *t, PclType ftype) {
     break;
 
   case GOTO:
-    if (!lookupEntry(t->str, LOOKUP_CURRENT_SCOPE, true)) {
+    if (!lookupEntry(t->str, LOOKUP_CURRENT_SCOPE, false)) {
       error("Error (goto): Undefined label %s", t->str);
       return 1;
     }
@@ -1243,7 +1243,7 @@ int type_check(ast *t, PclType ftype) {
     break;
 
   case STMT:
-    if (!(p = lookupEntry(t->id, LOOKUP_CURRENT_SCOPE, true)) ||
+    if (!(p = lookupEntry(t->id, LOOKUP_CURRENT_SCOPE, false)) ||
         p->u.eVariable.type->kind != TYPE_LABEL) {
       error("Error (label): label %s does not exist!", t->id);
       return 1;
@@ -1269,7 +1269,7 @@ int type_check(ast *t, PclType ftype) {
   case CALL:
     if (t->left && type_check(t->left, ftype))
       return 1;
-    if (!(p = lookupEntry(t->id, LOOKUP_ALL_SCOPES, true)) ||
+    if (!(p = lookupEntry(t->id, LOOKUP_ALL_SCOPES, false)) ||
         p->entryType != ENTRY_FUNCTION) {
       error("Error (call function): function %s undeclared!", t->id);
       return 1;
@@ -1399,7 +1399,7 @@ int type_check(ast *t, PclType ftype) {
     break;
 
   case ID:
-    if (!(p = lookupEntry(t->id, LOOKUP_ALL_SCOPES, true)) ||
+    if (!(p = lookupEntry(t->id, LOOKUP_ALL_SCOPES, false)) ||
         (p->entryType != ENTRY_VARIABLE && p->entryType != ENTRY_PARAMETER)) {
       error("Error (id): variable %s does not exist!", t->id);
       return 1;
@@ -1479,7 +1479,7 @@ int type_check(ast *t, PclType ftype) {
 }
 
 int type_checking(ast *t) {
-  initSymbolTable(256);              
+  initSymbolTable(256);
   int ret = type_check(t, NULL);
   destroySymbolTable();
   return ret;

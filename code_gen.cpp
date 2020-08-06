@@ -452,7 +452,7 @@ Value *code_gen(ast *t, Function *cur_func) {
   }
 
   case BODY:
-		// case local headers (if any) and block of statements
+		// case locals (if any) and block of statements
     if (t->left)
       code_gen(t->left, cur_func);
     code_gen(t->right, cur_func);
@@ -493,13 +493,14 @@ Value *code_gen(ast *t, Function *cur_func) {
   }
 
   case GOTO: {
-		// case goto <stmt>
+		// case 'goto <stmt>'
     p = lookupEntry(t->str, LOOKUP_CURRENT_SCOPE, false);
     if (p->u.eVariable.block) {
-			// if label is already defined
+			// if label is already defined create branch to that BasicBlock
       Builder.CreateBr(p->u.eVariable.block);
       return NULL;
     } else {
+			// if label not already defined, save goto for when label is defined
       p->u.eVariable.goto_stack.push_back(
           &cur_func->getBasicBlockList().back());
       lBB = BasicBlock::Create(TheContext, "help", cur_func);
@@ -510,130 +511,112 @@ Value *code_gen(ast *t, Function *cur_func) {
   }
 
   case IF: {
+		// case 'if then (else)'
     l = code_gen(t->left, cur_func);
     lBB = BasicBlock::Create(TheContext, "then", cur_func);
     mBB = BasicBlock::Create(TheContext, "else");
     rBB = BasicBlock::Create(TheContext, "merge");
-    // printf("made basic blocks\n");
+
     Builder.CreateCondBr(l, lBB, mBB);
-    // printf("made first branch\n");
-
     Builder.SetInsertPoint(lBB);
-    // printf("made insert point\n");
     code_gen(t->mid, cur_func);
-    // printf("code gen mid\n");
     Builder.CreateBr(rBB);
-    // printf("made break\n");
-
     cur_func->getBasicBlockList().push_back(mBB);
-    // printf("first push back\n");
     Builder.SetInsertPoint(mBB);
-    // printf("made 2 insert point\n");
+
     if (t->right) {
+			//if else exists
       code_gen(t->right, cur_func);
-      // printf("code gen else\n");
     }
+
     Builder.CreateBr(rBB);
-    // printf("second branch\n");
     cur_func->getBasicBlockList().push_back(rBB);
     Builder.SetInsertPoint(rBB);
     return NULL;
   }
 
   case INT_CONST: {
-    // printf("in int_const %d\n", t->integer);
+		// case constant int
     return c_int(t->integer);
   }
 
   case NEW: {
-    // printf("in new\n");
+    // case 'new'
     p = lookupEntry("cMalloc", LOOKUP_ALL_SCOPES, false);
     r = lvalue_pointer(t->right, cur_func);
     if (t->left) {
-      // printf("in new1\n");
+			// case 'new [size] l'
       l = code_gen(t->left, cur_func);
-      // printf("in new2\n");
-      // printf("prin\n");
       m = Builder.CreateIntToPtr(
           c_int(0),
           find_llvm_type(t->right->type->refType->refType)->getPointerTo());
-      // printf("meta\n");
+			// trick with CreateGEP instruction to get size of that to which l is pointing
       m = Builder.CreateGEP(m, c_int(1));
       m = Builder.CreatePtrToInt(m, i32);
+
+			// size * number of elements
       m = Builder.CreateMul(l, m);
       m = Builder.CreateZExt(m, i64);
+
+			// call declared cMalloc
       m = Builder.CreateCall(p->u.eFunction.llvmFunc, std::vector<Value *>{m});
       m = Builder.CreateIntToPtr(
           m, find_llvm_type(t->right->type->refType)->getPointerTo());
-      // printf("shit\n");
+
       Builder.CreateStore(m, r);
-      // Builder.CreateStore(Builder.CreateAlloca(find_llvm_type(t->right->type->refType),
-      // l), r); printf("in new3\n");
-    } else {
+    }
+		else {
+			//case 'new l'
       m = Builder.CreateIntToPtr(c_int(0), find_llvm_type(t->right->type));
-      // printf("meta\n");
+
       m = Builder.CreateGEP(m, c_int(1));
       m = Builder.CreatePtrToInt(m, i64);
       m = Builder.CreateCall(p->u.eFunction.llvmFunc, std::vector<Value *>{m});
       m = Builder.CreateIntToPtr(m, find_llvm_type(t->right->type));
-      // printf("shit\n");
       Builder.CreateStore(m, r);
-      // printf("in new4\n");
-      // Builder.CreateMalloc(cur_func->getBasicBlockList().back(), NULL,
-      // find_llvm_type(t->right->type->refType), NULL, l, NULL, cur_func);
-      // Builder.CreateStore(Builder.CreateAlloca(find_llvm_type(t->right->type->refType),
-      // 0, "newtmp"), r); printf("in new5\n");
     }
-    // printf("out new\n");
     return NULL;
   }
 
   case NOT: {
+		// case 'not'
     l = code_gen(t->left, cur_func);
     return Builder.CreateNot(l);
   }
 
   case FUNCTION:
   case PROCEDURE: {
-    // printf("in proc\n");
     prepareFunctionSymbolTable(t);
-    // printf("mesa\n");
     p1 = t->sentry->u.eFunction.firstArgument;
-    // printf("mesa1\n");
-    if (t->left) {    // t->left : seq_formal (parameters)
+    if (t->left) {
+			// if function (or procedure) has arguments
       head = t->left; // seq_formal
       while (head) {
-        // printf("in while\n");
         llvm_tp = find_llvm_type(head->left->right->type);
-        if (p1->u.eParameter.mode == PASS_BY_REFERENCE)
+        if (p1->u.eParameter.mode == PASS_BY_REFERENCE) {
+					// if pass by reference pass pointer
           llvm_tp = llvm_tp->getPointerTo();
+				}
         head1 = head->left->left;
         while (head1) {
-          // printf("in while2\n");
+					// while loop for all variables in one declaration (e.g var x, y, z : integer)
           params.push_back(llvm_tp);
           head1 = head1->right;
           p1 = p1->u.eParameter.next;
-          // printf("out while2\n");
         }
-        // printf("out while\n");
         head = head->right;
       }
-      // printf("outproc\n");
     }
-    // printf("found type\n");
-    // printf("made header\n");
     f_tp = FunctionType::get(find_llvm_type(t->type), params, false);
-    // printf("found llvmtype\n");
     f = Function::Create(f_tp, Function::InternalLinkage, t->id,
                          TheModule.get());
-    // printf("made func\n");
+		// save llvm object of funtion for later use
     t->sentry->u.eFunction.llvmFunc = f;
-    // printf("wtf?\n");
     return NULL;
   }
 
   case PROGRAM: {
-    // printf("in program\n");
+    // case 'program'
     openScope();
     generate_builtins();
     f_tp = FunctionType::get(i32, std::vector<llvm::Type *>{}, false);
@@ -641,14 +624,9 @@ Value *code_gen(ast *t, Function *cur_func) {
                                TheModule.get());
     BasicBlock *BB = BasicBlock::Create(TheContext, "entry", f);
     Builder.SetInsertPoint(BB);
-    // printf("before run tleft\n");
     code_gen(t->left, f);
-    // printf("ran tleft\n");
     Builder.CreateRet(c_int(0));
-    // printSymbolTable();
-    // printf("out createret\n");
     closeScope();
-    // printf("closed scope\n");
 		if (optimize_code) {
     	TheFPM = std::make_unique<legacy::FunctionPassManager>(TheModule.get());
     	TheFPM->add(createPromoteMemoryToRegisterPass());
@@ -663,19 +641,18 @@ Value *code_gen(ast *t, Function *cur_func) {
   }
 
   case REAL_CONST: {
+		//case constant real
     return c_real(t->real);
   }
 
   case RESULT: {
+		// case 'result' as rvalue
     p = lookupEntry("result", LOOKUP_CURRENT_SCOPE, false);
     return Builder.CreateLoad(p->alloca_inst);
   }
 
-  case VAR: {
-    return NULL;
-  }
-
   case WHILE: {
+		// case 'while'
     l = code_gen(t->left, cur_func);
     lBB = BasicBlock::Create(TheContext, "loop", cur_func);
     rBB = BasicBlock::Create(TheContext, "after");
@@ -694,230 +671,282 @@ Value *code_gen(ast *t, Function *cur_func) {
   }
 
   case STR_CONST: {
+		// case constant string
     return ConstantDataArray::getString(TheContext, t->str, true);
   }
 
   case NEQ: {
+		// case '<>'
     l = code_gen(t->left, cur_func);
     r = code_gen(t->right, cur_func);
+
     if (t->left->type->kind == TYPE_INTEGER &&
         t->right->type->kind == TYPE_REAL) {
       l = Builder.CreateCast(Instruction::SIToFP, l, f64);
       return Builder.CreateFCmpONE(l, r);
+
     } else if (t->right->type->kind == TYPE_INTEGER &&
                t->left->type->kind == TYPE_REAL) {
       r = Builder.CreateCast(Instruction::SIToFP, r, f64);
       return Builder.CreateFCmpONE(l, r);
+
     } else if (t->right->type->kind == TYPE_REAL &&
                t->left->type->kind == TYPE_REAL) {
       return Builder.CreateFCmpONE(l, r);
+
     }
     return Builder.CreateICmpNE(l, r);
   }
 
   case EQ: {
+		// case '='
     l = code_gen(t->left, cur_func);
     r = code_gen(t->right, cur_func);
+
     if (t->left->type->kind == TYPE_INTEGER &&
         t->right->type->kind == TYPE_REAL) {
       l = Builder.CreateCast(Instruction::SIToFP, l, f64);
       return Builder.CreateFCmpOEQ(l, r);
+
     } else if (t->right->type->kind == TYPE_INTEGER &&
                t->left->type->kind == TYPE_REAL) {
       r = Builder.CreateCast(Instruction::SIToFP, r, f64);
       return Builder.CreateFCmpOEQ(l, r);
+
     } else if (t->right->type->kind == TYPE_REAL &&
                t->left->type->kind == TYPE_REAL) {
       return Builder.CreateFCmpOEQ(l, r);
+
     }
     return Builder.CreateICmpEQ(l, r);
   }
 
   case GEQ: {
+		// case '>='
     l = code_gen(t->left, cur_func);
     r = code_gen(t->right, cur_func);
+
     if (t->left->type->kind == TYPE_INTEGER &&
         t->right->type->kind == TYPE_REAL) {
       l = Builder.CreateCast(Instruction::SIToFP, l, f64);
       return Builder.CreateFCmpOGE(l, r);
+
     } else if (t->right->type->kind == TYPE_INTEGER &&
                t->left->type->kind == TYPE_REAL) {
       r = Builder.CreateCast(Instruction::SIToFP, r, f64);
       return Builder.CreateFCmpOGE(l, r);
+
     } else if (t->right->type->kind == TYPE_REAL &&
                t->left->type->kind == TYPE_REAL) {
       return Builder.CreateFCmpOGE(l, r);
+
     }
     return Builder.CreateICmpSGE(l, r);
   }
 
   case LEQ: {
+		// case '<='
     l = code_gen(t->left, cur_func);
     r = code_gen(t->right, cur_func);
+
     if (t->left->type->kind == TYPE_INTEGER &&
         t->right->type->kind == TYPE_REAL) {
       l = Builder.CreateCast(Instruction::SIToFP, l, f64);
       return Builder.CreateFCmpOLE(l, r);
+
     } else if (t->right->type->kind == TYPE_INTEGER &&
                t->left->type->kind == TYPE_REAL) {
       r = Builder.CreateCast(Instruction::SIToFP, r, f64);
       return Builder.CreateFCmpOLE(l, r);
+
     } else if (t->right->type->kind == TYPE_REAL &&
                t->left->type->kind == TYPE_REAL) {
       return Builder.CreateFCmpOLE(l, r);
+
     }
     return Builder.CreateICmpSLE(l, r);
   }
 
   case LESS: {
+		// case '<'
     l = code_gen(t->left, cur_func);
     r = code_gen(t->right, cur_func);
+
     if (t->left->type->kind == TYPE_INTEGER &&
         t->right->type->kind == TYPE_REAL) {
       l = Builder.CreateCast(Instruction::SIToFP, l, f64);
       return Builder.CreateFCmpOLT(l, r);
+
     } else if (t->right->type->kind == TYPE_INTEGER &&
                t->left->type->kind == TYPE_REAL) {
       r = Builder.CreateCast(Instruction::SIToFP, r, f64);
       return Builder.CreateFCmpOLT(l, r);
+
     } else if (t->right->type->kind == TYPE_REAL &&
                t->left->type->kind == TYPE_REAL) {
       return Builder.CreateFCmpOLT(l, r);
+
     }
     return Builder.CreateICmpSLT(l, r);
   }
 
   case GREATER: {
+		// case '>'
     l = code_gen(t->left, cur_func);
     r = code_gen(t->right, cur_func);
+
     if (t->left->type->kind == TYPE_INTEGER &&
         t->right->type->kind == TYPE_REAL) {
       l = Builder.CreateCast(Instruction::SIToFP, l, f64);
       return Builder.CreateFCmpOGT(l, r);
+
     } else if (t->right->type->kind == TYPE_INTEGER &&
                t->left->type->kind == TYPE_REAL) {
       r = Builder.CreateCast(Instruction::SIToFP, r, f64);
       return Builder.CreateFCmpOGT(l, r);
+
     } else if (t->right->type->kind == TYPE_REAL &&
                t->left->type->kind == TYPE_REAL) {
       return Builder.CreateFCmpOGT(l, r);
+
     }
     return Builder.CreateICmpSGT(l, r);
   }
 
   case PLUS: {
+		// case '+'
     l = code_gen(t->left, cur_func);
-    if (!t->right)
-      return l;
+    if (!t->right) {
+			// if unary operator
+			return l;
+		}
     r = code_gen(t->right, cur_func);
     if (t->left->type->kind == TYPE_INTEGER &&
         t->right->type->kind == TYPE_REAL) {
       l = Builder.CreateCast(Instruction::SIToFP, l, f64);
       return Builder.CreateFAdd(l, r);
+
     } else if (t->right->type->kind == TYPE_INTEGER &&
                t->left->type->kind == TYPE_REAL) {
       r = Builder.CreateCast(Instruction::SIToFP, r, f64);
       return Builder.CreateFAdd(l, r);
+
     } else if (t->right->type->kind == TYPE_REAL &&
                t->left->type->kind == TYPE_REAL) {
       return Builder.CreateFAdd(l, r);
+
     }
     return Builder.CreateAdd(l, r);
   }
 
   case MINUS: {
+		// case '-'
     l = code_gen(t->left, cur_func);
     if (!t->right) {
+			// if unary operator
       if (t->left->type->kind == TYPE_REAL)
         return Builder.CreateFSub(c_real(0.0), l);
       else
         return Builder.CreateSub(c_int(0), l);
     }
+
     r = code_gen(t->right, cur_func);
     if (t->left->type->kind == TYPE_INTEGER &&
         t->right->type->kind == TYPE_REAL) {
       l = Builder.CreateCast(Instruction::SIToFP, l, f64);
       return Builder.CreateFSub(l, r);
+
     } else if (t->right->type->kind == TYPE_INTEGER &&
                t->left->type->kind == TYPE_REAL) {
       r = Builder.CreateCast(Instruction::SIToFP, r, f64);
       return Builder.CreateFSub(l, r);
+
     } else if (t->right->type->kind == TYPE_REAL &&
                t->left->type->kind == TYPE_REAL) {
       return Builder.CreateFSub(l, r);
+
     }
     return Builder.CreateSub(l, r);
   }
 
   case TIMES: {
+		// case '*'
     l = code_gen(t->left, cur_func);
     r = code_gen(t->right, cur_func);
+
     if (t->left->type->kind == TYPE_INTEGER &&
         t->right->type->kind == TYPE_REAL) {
       l = Builder.CreateCast(Instruction::SIToFP, l, f64);
       return Builder.CreateFMul(l, r);
+
     } else if (t->right->type->kind == TYPE_INTEGER &&
                t->left->type->kind == TYPE_REAL) {
       r = Builder.CreateCast(Instruction::SIToFP, r, f64);
       return Builder.CreateFMul(l, r);
+
     } else if (t->right->type->kind == TYPE_REAL &&
                t->left->type->kind == TYPE_REAL) {
       return Builder.CreateFMul(l, r);
+
     }
     return Builder.CreateMul(l, r);
   }
 
   case DIVIDE: {
+		// case '/'
     l = code_gen(t->left, cur_func);
     r = code_gen(t->right, cur_func);
+
     if (t->left->type->kind == TYPE_INTEGER) {
       l = Builder.CreateCast(Instruction::SIToFP, l, f64);
     }
+
     if (t->right->type->kind == TYPE_INTEGER) {
       r = Builder.CreateCast(Instruction::SIToFP, r, f64);
     }
+
     return Builder.CreateFDiv(l, r);
   }
 
   case DEREF: {
+		// case 'l^'
     return Builder.CreateLoad(code_gen(t->left, cur_func));
   }
 
   case REF: {
+		// case '@l'
     return lvalue_pointer(t->left, cur_func);
   }
 
   case SEQ_STMT: {
-    // printf("in seq_stmt\n");
+		// case sequence of statements
     for (head = t; head; head = head->right) {
       if (!head->left)
         break;
       code_gen(head->left, cur_func);
-      // printf("done with stmt\n");
     }
-    // printf("done with everything\n");
     return NULL;
   }
 
   case STMT: {
-    // printf("in stmt\n");
+		// case label : statement
     lBB = BasicBlock::Create(TheContext, "labelb", cur_func);
     Builder.CreateBr(lBB);
-    // printf("create block\n");
+
+		// label in t->id
     p = lookupEntry(t->id, LOOKUP_CURRENT_SCOPE, false);
-    // printf("lookedup\n");
+
     p->u.eVariable.block = lBB;
     std::vector<BasicBlock *> v_blocks = p->u.eVariable.goto_stack;
+
     while (!v_blocks.empty()) {
+			// make branches for the saved gotos
       Builder.SetInsertPoint(v_blocks.back());
       Builder.CreateBr(lBB);
       v_blocks.pop_back();
     }
-    // printf("found block\n");
     Builder.SetInsertPoint(lBB);
-    // printf("went there\n");
     code_gen(t->left, cur_func);
-    // printf("generate rest\n");
     return NULL;
   }
 
@@ -926,18 +955,16 @@ Value *code_gen(ast *t, Function *cur_func) {
   }
 
   case CALL: {
-    // printf("in call\n");
-    p = lookupEntry(t->id, LOOKUP_ALL_SCOPES, true);
+    // case call of function (or procedure)
+    p = lookupEntry(t->id, LOOKUP_ALL_SCOPES, false);
     p1 = p->u.eFunction.firstArgument;
     f = p->u.eFunction.llvmFunc;
-    // printf("before call %s\n", t->id);
-    // printf("%s\n", p->id);
     std::vector<Value *> params;
+
     for (head = t->left; head; head = head->right) {
 
       if (p1->u.eParameter.mode == PASS_BY_REFERENCE) {
         l = lvalue_pointer(head->left, cur_func);
-        // printf("megethos2 %d\n", p1->u.eParameter.type->size);
         if (l->getType() !=
             find_llvm_type(p1->u.eParameter.type)->getPointerTo()) {
           l = Builder.CreateBitCast(
@@ -950,70 +977,64 @@ Value *code_gen(ast *t, Function *cur_func) {
           l = Builder.CreateCast(Instruction::SIToFP, l, f64);
         }
       }
-
       params.push_back(l);
-      // printf("pushed back param\n");
       p1 = p1->u.eParameter.next;
     }
     auto ret = Builder.CreateCall(f, params);
-    // printf("made call\n");
     return ret;
   }
 
   case SEQ_LOCAL: {
-    // printf("in seq local\n");
+    // case sequence of locals
     for (head = t; head; head = head->right) {
-      // printf("in seq_local %d\n", head->left->k);
       code_gen(head->left, cur_func);
-      // printf("out seq_local %d\n", head->left->k);
     }
-    // printf("out seq local\n");
     return NULL;
   }
 
   case SEQ_LOCAL_VAR: {
+		// case sequence of local vars (e.g. var x, y : integer; z, k : integer)
     for (head = t; head; head = head->right) {
-      // printf("in seq local var %d\n", head->left->k);
       code_gen(head->left, cur_func);
-      // printf("out seq local var %d\n", head->left->k);
     }
     return NULL;
   }
 
   case LOCAL_VAR_INSTANCE: {
-    // printf("in local_var_instance %d\n", t->left->k);
+    // case of local vars with same type (e.g. var x, y : integer)
     tp = t->right->type;
     llvm_tp = find_llvm_type(tp);
-    // printf("found type\n");
+
     for (head = t->left; head; head = head->right) {
       p = newVariable(head->id, tp);
-      // printf("made variable\n");
       p->alloca_inst = Builder.CreateAlloca(llvm_tp, 0, head->id);
-      // printf("alloca\n");
     }
-    // printf("out local_var_instance %d\n", t->left->k);
     return NULL;
   }
 
   case LOCAL_VAR: {
-    // printf("in local var %d\n", t->left->k);
+		// case 'var x' in locals
     code_gen(t->left, cur_func);
-    // printf("out local var\n");
     return NULL;
   }
 
   case DEFINITION: {
+		// case definition of function (or procedure)
+
     if (!(p = lookupEntry(t->left->id, LOOKUP_ALL_SCOPES, false))) {
+			// if function has no forward declaration
       code_gen(t->left, cur_func);
       p = t->left->sentry;
     } else
       prepareFunctionSymbolTable(t->left);
+
     rBB = &cur_func->getBasicBlockList().back();
     cur_func = p->u.eFunction.llvmFunc;
     lBB = BasicBlock::Create(TheContext, t->left->id, cur_func);
     Builder.SetInsertPoint(lBB);
     p1 = p->u.eFunction.firstArgument;
     for (auto &Arg : cur_func->args()) {
+			// set name and alloca for every function argument
       Arg.setName(p1->id);
       if (p1->u.eParameter.mode == PASS_BY_REFERENCE) {
         Alloca = Builder.CreateAlloca(
@@ -1024,12 +1045,11 @@ Value *code_gen(ast *t, Function *cur_func) {
                                       Arg.getName());
       }
       p1->alloca_inst = Alloca;
-      // if(Arg.getType() == ArrayType::get(i8,
-      // 0)->getPointerTo()->getPointerTo()) printf("ola sosta\n");
       Builder.CreateStore(&Arg, Alloca);
       p1 = p1->u.eParameter.next;
     }
     if (t->left->k == FUNCTION) {
+			// if function then create variable result of type the function's return type for later use
       p = newVariable("result", t->left->type);
       p->alloca_inst =
           Builder.CreateAlloca(find_llvm_type(t->left->type), 0, "result");
@@ -1048,7 +1068,7 @@ Value *code_gen(ast *t, Function *cur_func) {
   }
 
   case DISPOSE_ARRAY: {
-    // printf("in\n");
+    // case 'dispose []'
     l = code_gen(t->left, cur_func);
     auto inst = CallInst::CreateFree(l, Builder.GetInsertBlock());
     Builder.GetInsertBlock()->getInstList().push_back(inst);
@@ -1059,6 +1079,7 @@ Value *code_gen(ast *t, Function *cur_func) {
   }
 
   case DISPOSE: {
+		// case 'dispose'
     l = code_gen(t->left, cur_func);
     auto inst = CallInst::CreateFree(l, Builder.GetInsertBlock());
     Builder.GetInsertBlock()->getInstList().push_back(inst);
@@ -1069,6 +1090,7 @@ Value *code_gen(ast *t, Function *cur_func) {
   }
 
   case ID: {
+		// case id
     p = lookupEntry(t->id, LOOKUP_ALL_SCOPES, false);
     l = Builder.CreateLoad(p->alloca_inst);
     if (p->entryType == ENTRY_PARAMETER &&
@@ -1078,18 +1100,19 @@ Value *code_gen(ast *t, Function *cur_func) {
   }
 
   case LABEL: {
-    // printf("inlabel\n");
+    // case declaration of label
     head = t->left;
     while (head) {
       newVariable(head->id, typeLabel);
       head = head->right;
     }
-    // printf("outlabel\n");
     return NULL;
   }
 
   case ASSIGN: {
+		// case ':='
     l = lvalue_pointer(t->left, cur_func);
+		// if rvalue is 'nil'
     if (t->right->k == NIL) {
       Builder.CreateStore(
           Builder.CreateIntToPtr(c_int(0), find_llvm_type(t->left->type)), l);
@@ -1104,6 +1127,7 @@ Value *code_gen(ast *t, Function *cur_func) {
   }
 
   case RETURN: {
+		// case 'return'
     llvm_tp = cur_func->getReturnType();
     if (llvm_tp->isVoidTy())
       Builder.CreateRetVoid();
@@ -1115,6 +1139,7 @@ Value *code_gen(ast *t, Function *cur_func) {
     return NULL;
   }
 
+	case VAR:
   case VARREF:
   case SEQ_FORMAL:
   case IARRAY:
@@ -1127,15 +1152,16 @@ Value *code_gen(ast *t, Function *cur_func) {
   case SEQ_EXPR:
   case SEQ_ID:
   case NIL: {
-    printf("oups %d\n", t->k);
+		// Should not be reached
+    error("Unknown error");
     return NULL;
   }
   default: { return NULL; }
   }
-  return NULL;
 }
 
 void generate_code(ast *t) {
+	// basic function for generating llvm ir
   TheModule = std::make_unique<Module>("pcl program", TheContext);
   initSymbolTable(256);
   code_gen(t, NULL);
