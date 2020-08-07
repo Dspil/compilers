@@ -42,6 +42,8 @@ After running `make` one can use the python script `pcl` to invoke the compiler 
 ./pcl <options>
 ```
 
+<options> can be just a filename with some extension, in which case an llvm IR file is created along with an assembly one, with the extensions 'imm' and 'asm' respectively.
+
 For a full listing of the available options run:
 
 ```bash
