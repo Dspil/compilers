@@ -53,7 +53,7 @@ For a full listing of the available options run:
 ## Design
 
 The compiler consists of 5 parts executed consequently:
-  * <b Lexing/>, which is implemented in file lexer.l using flex.
+  * <b>Lexing</b>, which is implemented in file lexer.l using flex.
   * Parsing, which is implemented in file parser.y using bison, while also creating an Abstract Syntax Tree (ast).
   * Type Checking, which is implemented in file ast.c in function type_check.
   * Function Parameters Fixing. This part was necessary due to the use of LLVM IR, which does not support nested scopes, nor allows direct access to the stack frames. In this part each function that uses a variable defined in an outer scope gets this variable passed as a parameter by reference. For this reason, the function make_params in file make_params.cpp is called to alter the ast. As this language supports mutual recursion, make_params is a fix point computation.
